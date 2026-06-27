@@ -1,32 +1,84 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { drawNpc, fmtTime, renderStars } from '@chili/ui';
-import { STATUS_LABEL } from '@chili/shared';
+import { STATUS_LABEL, type Station } from '@chili/shared';
 import { useApp } from '../store';
+
+function cityGroupKey(station: Station) {
+  return `${station.provinceAdcode ?? station.provinceName}:${station.cityName}`;
+}
 
 export function MessageWall() {
   const {
-    curStation, curCityStations, messages, sortNew, toggleSort, backToMap,
+    stations, curStation, curCityStations, messages, sortNew, toggleSort, backToMap, openCityWall,
     user, setComposerOpen, setLoginOpen, setLightbox, showToast, screen,
   } = useApp();
-  const active = screen !== 'admin';
+  const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
+  const active = screen === 'wall';
+
+  const cityGroups = useMemo(() => {
+    const groups = new Map<string, Station[]>();
+    for (const station of [...stations].sort((a, b) => a.date.localeCompare(b.date) || a.cityName.localeCompare(b.cityName))) {
+      const key = cityGroupKey(station);
+      groups.set(key, [...(groups.get(key) ?? []), station]);
+    }
+    return [...groups.values()];
+  }, [stations]);
+
+  const currentCityKey = curStation ? cityGroupKey(curStation) : '';
 
   const sorted = [...messages].sort((a, b) =>
     sortNew ? b.createdAt - a.createdAt : a.createdAt - b.createdAt,
   );
 
   return (
-    <div className="screen active" id="wall-view" style={{ display: active ? undefined : 'none' }}>
+    <div className={`screen ${active ? 'active' : ''}`} id="wall-view">
       <div className="topbar">
-        <button className="ico-btn back-btn" onClick={backToMap}>&lt; MAP</button>
+        <button className="ico-btn back-btn" onClick={() => { setCityDrawerOpen(false); backToMap(); }}>&lt; MAP</button>
         <div className="wordmark">{curStation ? curStation.code : 'SELECT'}</div>
-        <button className="ico-btn" onClick={toggleSort}>{sortNew ? '新' : '旧'}</button>
+        <div className="wall-actions">
+          <button className="ico-btn city-menu-btn" onClick={() => setCityDrawerOpen(true)} disabled={cityGroups.length === 0}>CITY</button>
+          <button className="ico-btn" onClick={toggleSort}>{sortNew ? '新' : '旧'}</button>
+        </div>
       </div>
+
+      <div className={`city-drawer-layer ${cityDrawerOpen ? 'open' : ''}`} aria-hidden={!cityDrawerOpen}>
+        <button className="city-drawer-shade" type="button" aria-label="关闭城市菜单" onClick={() => setCityDrawerOpen(false)} />
+        <aside className="city-drawer" aria-label="城市选择">
+          <div className="city-drawer-head">
+            <span>CITIES</span>
+            <button className="ico-btn mini" type="button" onClick={() => setCityDrawerOpen(false)}>X</button>
+          </div>
+          <div className="city-drawer-list">
+            {cityGroups.map((group) => {
+              const station = group[0];
+              const key = cityGroupKey(station);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`city-drawer-item ${key === currentCityKey ? 'on' : ''}`}
+                  onClick={() => {
+                    openCityWall(station, group);
+                    setCityDrawerOpen(false);
+                  }}
+                >
+                  <span className="city-drawer-city">{station.cityName}</span>
+                  <span className="city-drawer-meta">{group.length > 1 ? `${group.length} STOPS` : station.date}</span>
+                  <span className={`city-drawer-status ${station.status}`}>{STATUS_LABEL[station.status]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+      </div>
+
       <div className="stage">
         {!curStation ? (
           <div className="empty">
             <canvas className="npc" ref={(c) => { if (c) drawNpc(c); }} width={46} height={46} />
-            <div>← 在左侧地图点选一座城市<br />查看该站粉丝日记</div>
+            <div>在左侧地图点选一座城市<br />查看该站粉丝日记</div>
           </div>
         ) : (
           <>

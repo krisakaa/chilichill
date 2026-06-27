@@ -160,7 +160,7 @@ function markerPosition(station: Station, provinceCenters: Record<string, Projec
 export function TourMap() {
   const { stations, openWall, openCityWall, openAdmin, user, logout, setLoginOpen, screen } = useApp();
   const [china, setChina] = useState<ChinaGeoJson | null>(null);
-  const active = screen !== 'admin';
+  const active = screen === 'map';
 
   useEffect(() => {
     let cancelled = false;
@@ -203,7 +203,7 @@ export function TourMap() {
   }, [features, stations]);
 
   return (
-    <div className="screen active" id="map-view" style={{ display: active ? undefined : 'none' }}>
+    <div className={`screen ${active ? 'active' : ''}`} id="map-view">
       <div className="topbar">
         <button className="ico-btn mini" onClick={openAdmin}>?</button>
         <div className="wordmark">ChiliChill<small>TOUR DIARY</small></div>
@@ -251,7 +251,8 @@ export function TourMap() {
               const color = PALETTES[station.palette];
               return (
                 <g key={`${station.provinceAdcode ?? station.provinceName}-${station.cityName}`} className="block-marker" onClick={() => openCityWall(station, group)}>
-                  <circle cx={center.x} cy={center.y} r={group.length > 1 ? '1.28' : '1.08'} style={{ fill: color }} />
+                  <circle className="marker-hit" cx={center.x} cy={center.y} r="4.2" />
+                  <circle className="marker-dot" cx={center.x} cy={center.y} r={group.length > 1 ? '1.28' : '1.08'} style={{ fill: color }} />
                 </g>
               );
             })}

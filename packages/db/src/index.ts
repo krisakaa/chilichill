@@ -1,10 +1,8 @@
 import type { MessageStatus, Station } from '@chili/shared';
 import * as mock from './mock';
 
-declare const process: { env: { NEXT_PUBLIC_SUPABASE_URL?: string } };
-
 function canUseApi() {
-  return typeof window !== 'undefined' && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  return typeof window !== 'undefined';
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T | null> {
