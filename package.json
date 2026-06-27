@@ -19,8 +19,11 @@
   "engines": {
     "node": ">=20"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": ["@parcel/watcher", "esbuild", "turbo"],
-    "ignoredBuiltDependencies": ["sharp"]
-  }
+"pnpm": {
+  "onlyBuiltDependencies": [
+    "@parcel/watcher",
+    "esbuild",
+    "turbo",
+    "sharp"
+  ]
 }
