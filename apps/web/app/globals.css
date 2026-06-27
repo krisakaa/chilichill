@@ -335,6 +335,8 @@ textarea { resize: none; height: 74px; }
 .admin-item .ai-title { font-size: 14px; color: var(--ink); font-weight: bold; }
 .admin-item .ai-sub { font-size: 11px; color: var(--dim); margin-top: 3px; }
 .admin-item .ai-actions { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+.admin-pic-grid { display: grid; grid-template-columns: repeat(3, 64px); gap: 6px; margin: 8px 0; }
+.admin-pic-grid img { width: 64px; height: 64px; object-fit: cover; image-rendering: pixelated; cursor: pointer; background: var(--bg2); box-shadow: 0 0 0 1px rgba(244,231,211,.78); }
 .mini-btn { font-family: 'Press Start 2P'; font-size: 7px; padding: 6px 7px; background: var(--bg0); color: var(--ink); border: none; cursor: pointer; box-shadow: 0 0 0 1px var(--line); }
 .mini-btn:active { transform: translate(2px,2px); box-shadow: none; }
 .mini-btn.edit { color: var(--cool); } .mini-btn.del { color: var(--hot); } .mini-btn.pin { color: var(--gold); } .mini-btn.hide { color: var(--warn); }

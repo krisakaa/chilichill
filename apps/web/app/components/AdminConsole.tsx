@@ -13,7 +13,7 @@ import { StationEditor } from './StationEditor';
 type AdminTab = 'overview' | 'stations' | 'messages';
 
 export function AdminConsole() {
-  const { stations, allMsgs, refreshStations, refreshAdmin, showToast, setScreen } = useApp();
+  const { stations, allMsgs, refreshStations, refreshAdmin, showToast, setScreen, setLightbox } = useApp();
   const [tab, setTab] = useState<AdminTab>('overview');
   const [msgSearch, setMsgSearch] = useState('');
   const [editStation, setEditStation] = useState<Station | null | 'new'>(null);
@@ -105,6 +105,7 @@ export function AdminConsole() {
               })
               .map((m) => {
                 const s = stations.find((x) => x.id === m.stationId);
+                const images = m.images?.length ? m.images : (m.image ? [m.image] : []);
                 return (
                   <div key={m.id} className="admin-item">
                     <div className="ai-top">
@@ -118,6 +119,13 @@ export function AdminConsole() {
                       </div>
                     </div>
                     <div className="body" style={{ fontSize: 13, margin: '6px 0' }}>{m.body}</div>
+                    {images.length > 0 && (
+                      <div className="admin-pic-grid">
+                        {images.map((image) => (
+                          <img key={image} src={image} alt="" onClick={() => setLightbox(image)} />
+                        ))}
+                      </div>
+                    )}
                     <div className="ai-actions">
                       {m.status === 'pending' && (
                         <button className="mini-btn edit" onClick={async () => { await setMessageStatus(m.id, 'published'); await refreshAdmin(); showToast('已通过'); }}>
