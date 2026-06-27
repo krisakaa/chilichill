@@ -50,23 +50,33 @@ export function MessageWall() {
                 <div>这里还没有日记<br />成为第一个写下回忆的人吧</div>
               </div>
             ) : (
-              sorted.map((m) => (
-                <div key={m.id} className={`card ${m.official ? 'official' : ''}`}>
-                  <div className="card-head">
-                    <div className={`avatar ${m.official ? 'npc-av' : 'a' + m.avatar}`}>{m.author[0]}</div>
-                    <div className="who">
-                      <b>{m.author}</b>
-                      <div className="meta">{m.cityTag} · {fmtTime(m.createdAt)}</div>
+              sorted.map((m) => {
+                const images = m.images?.length ? m.images : (m.image ? [m.image] : []);
+                return (
+                  <div key={m.id} className={`card ${m.official ? 'official' : ''}`}>
+                    <div className="card-head">
+                      <div className={`avatar ${m.official ? 'npc-av' : 'a' + m.avatar}`}>{m.author[0]}</div>
+                      <div className="who">
+                        <b>{m.author}</b>
+                        <div className="meta">{m.cityTag} · {fmtTime(m.createdAt)}</div>
+                      </div>
+                    </div>
+                    <div className="body">{m.body}</div>
+                    {images.length === 1 && <img className="pic" src={images[0]} alt="" onClick={() => setLightbox(images[0])} />}
+                    {images.length > 1 && (
+                      <div className="pic-grid">
+                        {images.map((image) => (
+                          <img key={image} className="pic-thumb" src={image} alt="" onClick={() => setLightbox(image)} />
+                        ))}
+                      </div>
+                    )}
+                    <div className="mood-row">
+                      <span className="mood">{m.mood}</span>
+                      <span className="stars-rating" dangerouslySetInnerHTML={{ __html: renderStars(m.rating) }} />
                     </div>
                   </div>
-                  <div className="body">{m.body}</div>
-                  {m.image && <img className="pic" src={m.image} alt="" onClick={() => setLightbox(m.image)} />}
-                  <div className="mood-row">
-                    <span className="mood">{m.mood}</span>
-                    <span className="stars-rating" dangerouslySetInnerHTML={{ __html: renderStars(m.rating) }} />
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </>
         )}

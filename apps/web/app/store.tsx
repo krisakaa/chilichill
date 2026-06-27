@@ -12,6 +12,7 @@ export interface SubmitMessageInput {
   rating: number;
   cityTag: string;
   image?: string;
+  images?: string[];
 }
 
 interface AppContextValue {
@@ -166,7 +167,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       mood: input.mood,
       rating: input.rating,
       cityTag: input.cityTag,
-      image: input.image ?? '',
+      image: input.images?.[0] ?? input.image ?? '',
+      images: input.images ?? (input.image ? [input.image] : []),
     });
     await refreshMessages();
     await refreshStations();

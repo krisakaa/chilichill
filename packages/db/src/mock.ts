@@ -59,6 +59,7 @@ function normalize(db: DB): void {
   for (const message of db.messages) {
     message.stationId ??= null;
     message.status ??= 'published';
+    message.images ??= message.image ? [message.image] : [];
   }
 }
 
@@ -135,6 +136,7 @@ export async function createMessage(input: {
   rating: number;
   cityTag: string;
   image?: string;
+  images?: string[];
 }): Promise<Message> {
   const db = load();
   const msg: Message = {
@@ -147,7 +149,8 @@ export async function createMessage(input: {
     mood: input.mood,
     rating: input.rating,
     cityTag: input.cityTag,
-    image: input.image ?? '',
+    image: input.images?.[0] ?? input.image ?? '',
+    images: input.images ?? (input.image ? [input.image] : []),
     status: 'pending',
     createdAt: Date.now(),
   };

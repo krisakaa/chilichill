@@ -31,9 +31,20 @@ create table if not exists public.messages (
   status text not null default 'pending' check (status in ('published', 'pending', 'hidden')),
   created_at timestamptz not null default now()
 );
+create table if not exists public.message_images (
+  id uuid primary key default gen_random_uuid(),
+  message_id uuid not null references public.messages(id) on delete cascade,
+  url text not null,
+  sort_order integer not null default 0 check (sort_order between 0 and 5),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists message_images_message_id_sort_idx
+  on public.message_images (message_id, sort_order);
 
 alter table public.stations enable row level security;
 alter table public.messages enable row level security;
+alter table public.message_images enable row level security;
 
 drop policy if exists "Public station read" on public.stations;
 create policy "Public station read" on public.stations for select using (true);
@@ -44,3 +55,12 @@ create policy "Public published message read" on public.messages for select usin
 drop policy if exists "Public pending message insert" on public.messages;
 create policy "Public pending message insert" on public.messages for insert with check (status = 'pending' and official = false);
 
+
+drop policy if exists "Public published message image read" on public.message_images;
+create policy "Public published message image read" on public.message_images for select using (
+  exists (
+    select 1 from public.messages
+    where messages.id = message_images.message_id
+      and messages.status = 'published'
+  )
+);

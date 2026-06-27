@@ -53,7 +53,8 @@ export interface Message {
   mood: Mood | string;
   rating: number; // 0-5
   cityTag: string;
-  image: string; // 像素化图片 URL（可空）
+  image: string; // 兼容旧单图 URL（可空）
+  images?: string[]; // 留言图片 URL 列表
   status: MessageStatus;
   createdAt: number;
 }

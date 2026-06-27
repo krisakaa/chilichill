@@ -1,5 +1,15 @@
 import { adminClient, hasSupabaseEnv, mapMessage } from '../../lib/server-data';
 
+const MAX_IMAGES = 6;
+
+function normalizeImages(input: unknown) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    .map((item) => item.trim())
+    .slice(0, MAX_IMAGES);
+}
+
 export async function GET(request: Request) {
   if (!hasSupabaseEnv()) return Response.json({ fallback: true }, { status: 503 });
   const url = new URL(request.url);
@@ -8,7 +18,7 @@ export async function GET(request: Request) {
   const supabase = adminClient();
   let query = supabase
     .from('messages')
-    .select('*')
+    .select('*, message_images(url, sort_order)')
     .eq('status', 'published')
     .order('official', { ascending: false })
     .order('created_at', { ascending: false });
@@ -22,6 +32,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (!hasSupabaseEnv()) return Response.json({ fallback: true }, { status: 503 });
   const input = await request.json();
+  const images = normalizeImages(input.images);
   const supabase = adminClient();
   const { data, error } = await supabase.from('messages').insert({
     station_id: input.stationId,
@@ -32,10 +43,19 @@ export async function POST(request: Request) {
     mood: input.mood,
     rating: input.rating,
     city_tag: input.cityTag,
-    image: input.image ?? '',
+    image: images[0] ?? input.image ?? '',
     status: 'pending',
   }).select('*').single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json(mapMessage(data));
-}
 
+  if (images.length) {
+    const { error: imageError } = await supabase.from('message_images').insert(images.map((url, index) => ({
+      message_id: data.id,
+      url,
+      sort_order: index,
+    })));
+    if (imageError) return Response.json({ error: imageError.message }, { status: 500 });
+  }
+
+  return Response.json(mapMessage({ ...data, message_images: images.map((url, index) => ({ url, sort_order: index })) }));
+}

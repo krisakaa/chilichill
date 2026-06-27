@@ -4,6 +4,11 @@ import type { Message, MessageStatus, Palette, Station, StationStatus } from '@c
 
 const ADMIN_COOKIE = 'chilichill_admin';
 
+export type MessageImageInput = {
+  url: string;
+  sortOrder: number;
+};
+
 type StationRow = {
   id: string;
   code: string;
@@ -19,6 +24,11 @@ type StationRow = {
   palette: Palette;
 };
 
+type MessageImageRow = {
+  url: string;
+  sort_order: number | null;
+};
+
 type MessageRow = {
   id: string;
   station_id: string | null;
@@ -32,6 +42,7 @@ type MessageRow = {
   image: string | null;
   status: MessageStatus;
   created_at: string;
+  message_images?: MessageImageRow[] | null;
 };
 
 export function hasSupabaseEnv() {
@@ -63,7 +74,17 @@ export function mapStation(row: StationRow & { count?: number }): Station {
   };
 }
 
+function imageUrls(row: MessageRow) {
+  const next = (row.message_images ?? [])
+    .filter((item) => item.url)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((item) => item.url);
+  if (next.length) return next;
+  return row.image ? [row.image] : [];
+}
+
 export function mapMessage(row: MessageRow): Message {
+  const images = imageUrls(row);
   return {
     id: row.id,
     stationId: row.station_id,
@@ -74,7 +95,8 @@ export function mapMessage(row: MessageRow): Message {
     mood: row.mood,
     rating: row.rating,
     cityTag: row.city_tag,
-    image: row.image ?? '',
+    image: images[0] ?? '',
+    images,
     status: row.status,
     createdAt: new Date(row.created_at).getTime(),
   };
@@ -95,6 +117,13 @@ export function stationToRow(input: Partial<Station> & { name: string }) {
     palette: input.palette ?? 'hot',
     updated_at: new Date().toISOString(),
   };
+}
+
+export function messageImageRows(messageId: string, images: string[]): MessageImageInput[] {
+  return images.slice(0, 6).map((url, index) => ({
+    url,
+    sortOrder: index,
+  }));
 }
 
 export async function isAdminSession() {
@@ -126,4 +155,3 @@ export async function clearAdminCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(ADMIN_COOKIE);
 }
-

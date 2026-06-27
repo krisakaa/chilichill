@@ -272,6 +272,8 @@ html, body { height: 100%; overflow: hidden; background: #000;
 .body { font-size: 15px; line-height: 1.6; color: var(--ink); word-break: break-word; white-space: pre-wrap; }
 .pic { margin-top: 9px; width: 100%; max-height: 220px; object-fit: cover; image-rendering: pixelated;
   box-shadow: 0 0 0 1px rgba(244,231,211,.8); display: block; background: var(--bg2); cursor: pointer; }
+.pic-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 9px; }
+.pic-thumb { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; image-rendering: pixelated; background: var(--bg2); cursor: pointer; box-shadow: 0 0 0 1px rgba(244,231,211,.8); }
 .mood-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--dim); flex-wrap: wrap; }
 .mood { padding: 3px 7px; background: rgba(51,36,102,.82); box-shadow: 0 0 0 1px rgba(177,160,204,.75); }
 .stars-rating { color: var(--gold); letter-spacing: 1px; } .stars-rating .off { color: var(--bg2); }
@@ -292,9 +294,13 @@ textarea { resize: none; height: 74px; }
 .mood-pick { font-family: 'Press Start 2P'; font-size: 9px; color: var(--ink); background: var(--bg0); padding: 7px 8px; cursor: pointer; box-shadow: 0 0 0 1px var(--dim); }
 .mood-pick.on { background: var(--hot); color: var(--shadow); box-shadow: 0 0 0 1px var(--gold); }
 .star-pick { font-size: 22px; cursor: pointer; color: var(--bg2); } .star-pick.on { color: var(--gold); }
+.file-input { display: none; }
+.image-picker { display: flex; gap: 8px; flex-wrap: wrap; }
 .img-slot { width: 64px; height: 64px; background: var(--bg0); display: flex; align-items: center; justify-content: center;
-  color: var(--dim); font-size: 22px; cursor: pointer; box-shadow: 0 0 0 1px var(--dim); }
+  color: var(--dim); font-size: 22px; cursor: pointer; box-shadow: 0 0 0 1px var(--dim); border: 0; font-family: 'Press Start 2P', monospace; position: relative; }
 .img-slot.has { background-size: cover; background-position: center; image-rendering: pixelated; }
+.img-slot span { position: absolute; top: 3px; right: 4px; width: 16px; height: 16px; line-height: 15px; text-align: center; background: var(--hot); color: var(--shadow); font-size: 11px; box-shadow: 0 0 0 1px var(--shadow); }
+.img-slot:disabled { opacity: .55; cursor: wait; }
 .city-pick { font-size: 12px; color: var(--ink); background: var(--bg0); padding: 6px 9px; cursor: pointer; box-shadow: 0 0 0 1px var(--dim); }
 .city-pick.on { background: var(--violet); color: var(--shadow); box-shadow: 0 0 0 1px var(--gold); }
 .actions { display: flex; gap: 10px; margin-top: 8px; }
