@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ChiliChill 巡演日记 · 像素日记</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg0:#1a1033; --bg1:#2a1b54; --bg2:#3d2a7a; --bg3:#241640;
+    --ink:#f4e7d3; --dim:#9a86c0; --line:#4a3580;
+    --hot:#ff4d6d; --cool:#37d7e2; --gold:#ffd23f; --green:#7cf28a; --violet:#b388ff; --warn:#ff9f43;
+    --shadow:#0a0518;
+    --ocean:#163061; --ocean2:#1b3a6b; --grass:#2f7d4f; --grass2:#1d5e36; --sand:#d9c388; --rock:#6b6157;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:#000;font-family:'ZCOOL KuaiLe','Press Start 2P',monospace;color:var(--ink)}
+  body{display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+
+  #crt{position:relative;width:100%;height:100%;max-width:480px;max-height:880px;background:var(--bg0);overflow:hidden;
+    box-shadow:0 0 0 4px #000,0 0 0 8px var(--line),0 0 0 10px #000,0 20px 60px rgba(0,0,0,.8)}
+  @media(min-width:520px) and (min-height:640px){#crt{border-radius:18px}}
+  /* 桌面：撑满视口，圆角取消，外壳简化 */
+  @media(min-width:980px){#crt{max-width:none;max-height:none;border-radius:0;
+    box-shadow:0 0 0 3px var(--line),0 0 0 6px #000}}
+  #crt::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:200;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0,rgba(0,0,0,.16) 1px,transparent 2px,transparent 3px);mix-blend-mode:multiply}
+  #crt::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:201;
+    background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.55) 100%)}
+
+  /* panes 容器：相对 #crt 撑满。窄屏单栏切换 / 宽屏双栏并排 */
+  #panes{position:absolute;inset:0;display:flex;flex-direction:column;min-height:0}
+  .screen{position:absolute;inset:0;display:none;flex-direction:column}
+  .screen.active{display:flex;animation:pageIn .32s steps(6)}
+  @keyframes pageIn{0%{opacity:0;transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
+
+  /* 桌面双栏：地图常驻左、留言墙常驻右 */
+  @media(min-width:980px){
+    #panes{flex-direction:row}
+    #panes .screen{position:relative;inset:auto;display:flex!important;animation:none}
+    #map-view{flex:0 0 46%;border-right:3px solid var(--shadow)}
+    #wall-view{flex:1}
+    /* 桌面隐藏返回按钮（地图始终可见） */
+    #back-btn{display:none}
+    #wall-wm{font-size:11px}
+    .wordmark{font-size:11px}
+  }
+
+  /* ===== 通用组件 ===== */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;gap:8px;
+    background:linear-gradient(180deg,var(--bg1),var(--bg2));border-bottom:3px solid var(--shadow);z-index:30}
+  .wordmark{font-family:'Press Start 2P';font-size:10px;color:var(--gold);text-shadow:2px 2px 0 var(--hot),4px 4px 0 var(--shadow);text-align:center;flex:1;white-space:nowrap}
+  .wordmark small{display:block;font-size:6px;color:var(--cool);text-shadow:1px 1px 0 var(--shadow);margin-top:4px;letter-spacing:1px}
+  .ico-btn{font-family:'Press Start 2P';font-size:8px;color:var(--ink);background:var(--bg0);padding:8px 9px;border:none;cursor:pointer;
+    box-shadow:0 0 0 2px var(--ink),3px 3px 0 var(--shadow);transition:transform .05s;white-space:nowrap}
+  .ico-btn:active{transform:translate(3px,3px);box-shadow:0 0 0 2px var(--ink),0 0 0 var(--shadow)}
+  .ico-btn.on{background:var(--hot);color:var(--shadow)}
+  .ico-btn.mini{padding:7px 7px;font-size:7px}
+
+  .fab{position:absolute;right:14px;bottom:18px;z-index:40;font-family:'Press Start 2P';font-size:9px;color:var(--shadow);background:var(--gold);
+    padding:13px 14px;border:none;cursor:pointer;box-shadow:0 0 0 2px var(--shadow),4px 4px 0 var(--shadow)}
+  .fab:active{transform:translate(4px,4px);box-shadow:0 0 0 2px var(--shadow),0 0 0 var(--shadow)}
+  .fab.disabled{background:var(--bg2);color:var(--dim);box-shadow:0 0 0 2px var(--line),4px 4px 0 var(--shadow)}
+
+  .stage{flex:1;position:relative;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--violet) transparent}
+  .stage::-webkit-scrollbar{width:6px}
+  .stage::-webkit-scrollbar-thumb{background:var(--violet)}
+
+  #toast{position:absolute;top:62px;left:0;right:0;text-align:center;z-index:210;pointer-events:none;opacity:0;transition:opacity .2s}
+  #toast.show{opacity:1}
+  #toast span{background:var(--shadow);color:var(--gold);padding:8px 14px;font-size:13px;box-shadow:0 0 0 2px var(--gold);display:inline-block}
+
+  /* ===== 开机动画 ===== */
+  #boot{position:absolute;inset:0;z-index:150;background:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+  #boot.done{display:none}
+  .boot-logo{font-family:'Press Start 2P';font-size:18px;color:var(--gold);text-align:center;line-height:1.8;
+    text-shadow:0 0 12px rgba(255,210,63,.6);opacity:0;animation:bootGlow 1.4s steps(8) forwards}
+  .boot-logo small{display:block;font-size:9px;color:var(--cool);margin-top:10px;letter-spacing:3px}
+  @keyframes bootGlow{0%{opacity:0;transform:scale(.7);filter:blur(6px)}60%{opacity:1}100%{opacity:1;transform:scale(1);filter:blur(0)}}
+  .boot-bar{width:62%;height:14px;background:var(--bg0);box-shadow:0 0 0 2px var(--ink);overflow:hidden;position:relative}
+  .boot-bar i{position:absolute;left:0;top:0;height:100%;background:repeating-linear-gradient(90deg,var(--green) 0,var(--green) 6px,transparent 6px,transparent 9px);width:0;animation:bootFill 1.6s steps(40) forwards}
+  @keyframes bootFill{to{width:100%}}
+  .boot-npc{width:46px;height:46px;opacity:0;animation:npcIn .5s steps(4) 1.5s forwards}
+  @keyframes npcIn{to{opacity:1}}
+  .boot-tip{font-size:12px;color:var(--dim);opacity:0;animation:npcIn .5s steps(2) 1.8s forwards}
+  /* 占位小人（等真素材替换） */
+  .npc{image-rendering:pixelated;display:block}
+
+  /* ===== 地图 ===== */
+  #map-view .stage{overflow:hidden;background:var(--ocean)}
+  #terrain{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+  .map-title{position:absolute;top:12px;left:0;right:0;text-align:center;z-index:3;pointer-events:none}
+  .map-title h2{font-family:'Press Start 2P';font-size:13px;color:var(--gold);text-shadow:2px 2px 0 var(--shadow),0 0 8px rgba(255,210,63,.5)}
+  .map-title p{font-size:12px;color:#bfe9ff;margin-top:5px;text-shadow:1px 1px 0 var(--shadow)}
+  #route{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;overflow:visible}
+  #route .dash{fill:none;stroke:var(--gold);stroke-width:3;stroke-linecap:round;stroke-dasharray:2 10;animation:routeDash 1s linear infinite;filter:drop-shadow(0 0 4px var(--gold))}
+  @keyframes routeDash{to{stroke-dashoffset:-12}}
+  .marker{position:absolute;width:40px;height:44px;transform:translate(-50%,-100%);cursor:pointer;z-index:5}
+  .marker .pin{position:absolute;left:50%;bottom:0;width:24px;height:30px;transform:translateX(-50%);filter:drop-shadow(0 3px 0 var(--shadow))}
+  .marker .badge{position:absolute;left:50%;top:1px;width:26px;height:26px;transform:translateX(-50%);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P';font-size:9px;color:var(--shadow);
+    background:var(--hot);box-shadow:0 0 0 3px var(--ink),0 0 10px rgba(255,77,109,.8)}
+  .marker.alt .badge{background:var(--cool)}
+  .marker.gold .badge{background:var(--gold)}
+  .marker.done .badge{opacity:.65}
+  .marker{animation:mBob 1.8s steps(5) infinite}
+  .marker:nth-child(2n){animation-delay:.3s}.marker:nth-child(3n){animation-delay:.6s}
+  @keyframes mBob{50%{transform:translate(-50%,-104%)}}
+  .marker:active{transform:translate(-50%,-96%)!important;animation:none}
+  .marker .label{position:absolute;left:50%;bottom:-17px;transform:translateX(-50%);white-space:nowrap;font-size:13px;color:#fff;text-shadow:1px 1px 0 var(--shadow);font-weight:bold}
+  .hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:12px;color:#bfe9ff;z-index:3;text-shadow:1px 1px 0 var(--shadow)}
+
+  /* 巡演进度小标 */
+  .tour-progress{position:absolute;top:78px;left:0;right:0;z-index:3;display:flex;justify-content:center;gap:5px;pointer-events:none}
+  .tour-progress i{width:22px;height:6px;background:var(--bg2);box-shadow:0 0 0 1px var(--ink)}
+  .tour-progress i.done{background:var(--gold)}
+  .tour-progress i.cur{background:var(--hot);animation:mBob 1s steps(2) infinite}
+
+  /* ===== 留言墙 ===== */
+  .station-head{padding:14px 14px 12px;text-align:center;border-bottom:3px solid var(--shadow);
+    background:linear-gradient(180deg,var(--bg2),var(--bg1))}
+  .station-head .city{font-family:'Press Start 2P';font-size:15px;color:var(--gold);text-shadow:2px 2px 0 var(--shadow)}
+  .station-head .date{font-size:13px;color:var(--cool);margin-top:6px}
+  .station-head .venue{font-size:12px;color:var(--dim);margin-top:3px}
+  .station-head .count{font-size:12px;color:var(--dim);margin-top:7px}
+  .station-head .badge-status{display:inline-block;margin-top:8px;font-family:'Press Start 2P';font-size:7px;padding:4px 7px;background:var(--bg0);box-shadow:0 0 0 2px var(--line);color:var(--gold)}
+  .station-head .badge-status.live{background:var(--hot);color:var(--shadow);box-shadow:0 0 0 2px var(--gold)}
+  .station-head .badge-status.upcoming{color:var(--cool)}
+
+  .card{background:var(--bg1);margin:11px 12px;padding:11px;box-shadow:0 0 0 2px var(--ink),4px 4px 0 var(--shadow);position:relative;animation:cardIn .4s steps(5)}
+  .card.official{box-shadow:0 0 0 2px var(--gold),4px 4px 0 var(--shadow);background:linear-gradient(180deg,#3a2c1a,var(--bg1))}
+  .card.official::before{content:"官方";position:absolute;top:-9px;left:10px;font-family:'Press Start 2P';font-size:7px;background:var(--gold);color:var(--shadow);padding:3px 6px;box-shadow:2px 2px 0 var(--shadow)}
+  @keyframes cardIn{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:translateY(0)}}
+  .card-head{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .avatar{width:34px;height:34px;flex:0 0 auto;background:var(--green);display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P';font-size:12px;color:var(--shadow);box-shadow:0 0 0 2px var(--ink)}
+  .avatar.a2{background:var(--violet)}.avatar.a3{background:var(--gold)}.avatar.a4{background:var(--cool)}.avatar.a5{background:var(--warn)}
+  .avatar.npc-av{background:var(--hot)}
+  .who{flex:1;min-width:0}.who b{font-size:14px;color:var(--ink)}.who .meta{font-size:11px;color:var(--dim);margin-top:2px}
+  .body{font-size:15px;line-height:1.55;color:var(--ink);word-break:break-word;white-space:pre-wrap}
+  .pic{margin-top:9px;width:100%;max-height:220px;object-fit:cover;image-rendering:pixelated;box-shadow:0 0 0 2px var(--ink);display:block;background:var(--bg2);cursor:pointer}
+  .mood-row{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px;color:var(--dim);flex-wrap:wrap}
+  .mood{padding:2px 7px;background:var(--bg2);box-shadow:0 0 0 1px var(--dim)}
+  .stars-rating{color:var(--gold);letter-spacing:1px}
+  .stars-rating .off{color:var(--bg2)}
+  .empty{padding:50px 20px;text-align:center;color:var(--dim);font-size:14px}
+  .empty .npc{margin:0 auto 14px}
+
+  /* ===== Composer ===== */
+  .modal{position:absolute;inset:0;z-index:80;background:rgba(10,5,24,.86);display:none;flex-direction:column;justify-content:flex-end}
+  .modal.active{display:flex;animation:fadeIn .2s}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .sheet{background:var(--bg1);border-top:4px solid var(--gold);padding:16px 14px 22px;box-shadow:0 0 0 2px var(--shadow);animation:sheetUp .3s steps(6);max-height:88%;overflow-y:auto}
+  @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .sheet h3{font-family:'Press Start 2P';font-size:11px;color:var(--gold);margin-bottom:14px;text-align:center}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:12px;color:var(--cool);margin-bottom:6px}
+  textarea,input[type=text],input[type=password],input[type=date],select{width:100%;background:var(--bg0);color:var(--ink);border:none;padding:10px;font-size:14px;font-family:'ZCOOL KuaiLe',monospace;box-shadow:0 0 0 2px var(--ink) inset}
+  textarea{resize:none;height:74px}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .mood-pick{font-family:'Press Start 2P';font-size:9px;color:var(--ink);background:var(--bg0);padding:7px 8px;cursor:pointer;box-shadow:0 0 0 2px var(--dim)}
+  .mood-pick.on{background:var(--hot);color:var(--shadow);box-shadow:0 0 0 2px var(--gold)}
+  .star-pick{font-size:22px;cursor:pointer;color:var(--bg2)}.star-pick.on{color:var(--gold)}
+  .img-slot{width:64px;height:64px;background:var(--bg0);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:22px;cursor:pointer;box-shadow:0 0 0 2px var(--dim)}
+  .img-slot.has{background-size:cover;background-position:center;image-rendering:pixelated}
+  .city-pick{font-size:12px;color:var(--ink);background:var(--bg0);padding:6px 9px;cursor:pointer;box-shadow:0 0 0 2px var(--dim)}
+  .city-pick.on{background:var(--violet);color:var(--shadow);box-shadow:0 0 0 2px var(--gold)}
+  .actions{display:flex;gap:10px;margin-top:8px}
+  .btn{flex:1;font-family:'Press Start 2P';font-size:9px;padding:13px 0;border:none;cursor:pointer}
+  .btn.cancel{background:var(--bg2);color:var(--ink);box-shadow:0 0 0 2px var(--ink),3px 3px 0 var(--shadow)}
+  .btn.post{background:var(--green);color:var(--shadow);box-shadow:0 0 0 2px var(--shadow),3px 3px 0 var(--shadow)}
+  .btn.danger{background:var(--hot);color:var(--shadow)}
+  .btn.warn{background:var(--warn);color:var(--shadow)}
+  .btn:active{transform:translate(3px,3px);box-shadow:none}
+  .auth-note{text-align:center;font-size:12px;color:var(--dim);margin-top:4px}.auth-note b{color:var(--gold)}
+
+  /* ===== 登录页 ===== */
+  #login-modal .sheet{border-top-color:var(--cool)}
+  #login-modal h3{color:var(--cool)}
+  .login-tabs{display:flex;margin-bottom:14px;gap:6px}
+  .login-tabs button{flex:1;font-family:'Press Start 2P';font-size:8px;padding:9px 0;background:var(--bg0);color:var(--dim);border:none;cursor:pointer;box-shadow:0 0 0 2px var(--line)}
+  .login-tabs button.on{background:var(--cool);color:var(--shadow);box-shadow:0 0 0 2px var(--gold)}
+
+  /* ===== 图片大图 ===== */
+  #lightbox{position:absolute;inset:0;z-index:90;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;padding:30px}
+  #lightbox.active{display:flex;animation:fadeIn .2s}
+  #lightbox img{max-width:100%;max-height:100%;image-rendering:pixelated;box-shadow:0 0 0 2px var(--ink)}
+  #lightbox .close{position:absolute;top:14px;right:14px;font-family:'Press Start 2P';font-size:10px;background:var(--hot);color:var(--shadow);padding:9px;cursor:pointer;box-shadow:0 0 0 2px var(--ink)}
+
+  /* ===== 管理后台 ===== */
+  #admin-view .stage{padding:0}
+  .admin-nav{display:flex;background:var(--bg3);border-bottom:3px solid var(--shadow)}
+  .admin-nav button{flex:1;font-family:'Press Start 2P';font-size:7px;padding:11px 2px;background:transparent;color:var(--dim);border:none;cursor:pointer;border-bottom:3px solid transparent}
+  .admin-nav button.on{color:var(--gold);border-bottom-color:var(--gold);background:var(--bg1)}
+  .admin-body{padding:13px}
+  .admin-h{font-family:'Press Start 2P';font-size:10px;color:var(--gold);margin-bottom:12px;text-shadow:2px 2px 0 var(--shadow)}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .stat{background:var(--bg1);padding:12px;box-shadow:0 0 0 2px var(--ink),3px 3px 0 var(--shadow)}
+  .stat b{display:block;font-family:'Press Start 2P';font-size:18px;color:var(--gold)}
+  .stat span{font-size:11px;color:var(--dim)}
+  .admin-item{background:var(--bg1);padding:11px;margin-bottom:10px;box-shadow:0 0 0 2px var(--ink),3px 3px 0 var(--shadow)}
+  .admin-item .ai-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .admin-item .ai-title{font-size:14px;color:var(--ink);font-weight:bold}
+  .admin-item .ai-sub{font-size:11px;color:var(--dim);margin-top:3px}
+  .admin-item .ai-actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+  .mini-btn{font-family:'Press Start 2P';font-size:7px;padding:6px 7px;background:var(--bg0);color:var(--ink);border:none;cursor:pointer;box-shadow:0 0 0 2px var(--line)}
+  .mini-btn:active{transform:translate(2px,2px);box-shadow:none}
+  .mini-btn.edit{color:var(--cool)}.mini-btn.del{color:var(--hot)}.mini-btn.pin{color:var(--gold)}.mini-btn.hide{color:var(--warn)}
+  .search-row{display:flex;gap:8px;margin-bottom:12px}
+  .search-row input{flex:1}
+  .coord-row{display:flex;gap:8px}
+  .coord-row input{flex:1}
+  .palette-row{display:flex;gap:6px;flex-wrap:wrap}
+  .palette-row .sw{width:30px;height:30px;cursor:pointer;box-shadow:0 0 0 2px var(--ink)}
+  .palette-row .sw.on{box-shadow:0 0 0 2px var(--gold)}
+  .add-bar{position:sticky;bottom:0;background:var(--bg3);padding:10px;border-top:2px solid var(--shadow)}
+  .add-bar .btn{flex:none;width:100%}
+  .form-grid{display:grid;gap:10px}
+  .seg{display:flex;gap:6px}.seg button{flex:1;font-family:'Press Start 2P';font-size:7px;padding:8px 0;background:var(--bg0);color:var(--dim);border:none;cursor:pointer;box-shadow:0 0 0 2px var(--line)}
+  .seg button.on{background:var(--green);color:var(--shadow);box-shadow:0 0 0 2px var(--gold)}
+  .admin-tag{font-family:'Press Start 2P';font-size:6px;padding:3px 5px;background:var(--bg0);color:var(--dim);box-shadow:0 0 0 1px var(--line)}
+  .admin-tag.live{background:var(--hot);color:var(--shadow)}
+  .admin-tag.upcoming{background:var(--cool);color:var(--shadow)}
+  .admin-tag.hidden{background:var(--bg2);color:var(--warn)}
+  .admin-tag.official{background:var(--gold);color:var(--shadow)}
+</style>
+</head>
+<body>
+<div id="crt">
+
+  <!-- ===== 开机 ===== -->
+  <div id="boot">
+    <div class="boot-logo">ChiliChill<small>TOUR DIARY</small></div>
+    <div class="boot-bar"><i></i></div>
+    <canvas class="boot-npc npc" id="boot-npc" width="46" height="46"></canvas>
+    <div class="boot-tip">正在加载巡演数据…</div>
+  </div>
+
+  <!-- ===== 地图 + 留言墙（panes 容器） ===== -->
+  <div id="panes">
+  <!-- ===== 地图 ===== -->
+  <div class="screen active" id="map-view">
+    <div class="topbar">
+      <button class="ico-btn mini" id="admin-entry" title="管理">⚙</button>
+      <div class="wordmark">ChiliChill<small>TOUR DIARY</small></div>
+      <button class="ico-btn" id="auth-btn">LOGIN</button>
+    </div>
+    <div class="stage" id="map-stage">
+      <canvas id="terrain"></canvas>
+      <div class="map-title"><h2>巡演地图</h2><p>点选一座城市 · 查看粉丝日记</p></div>
+      <svg id="route" preserveAspectRatio="none" viewBox="0 0 100 100"></svg>
+      <div class="tour-progress" id="tour-progress"></div>
+      <div id="markers"></div>
+      <div class="hint">↑ 沿金色巡演路线探索各站 ↑</div>
+    </div>
+  </div>
+
+  <!-- ===== 留言墙 ===== -->
+  <div class="screen" id="wall-view">
+    <div class="topbar">
+      <button class="ico-btn" id="back-btn">&lt; MAP</button>
+      <div class="wordmark" id="wall-wm">STATION</div>
+      <button class="ico-btn" id="sort-btn">新</button>
+    </div>
+    <div class="stage" id="wall-feed"></div>
+    <button class="fab disabled" id="post-fab">+ WRITE</button>
+  </div>
+  </div><!-- /panes -->
+
+  <!-- ===== 管理后台 ===== -->
+  <div class="screen" id="admin-view">
+    <div class="topbar">
+      <button class="ico-btn" id="admin-exit">&lt; EXIT</button>
+      <div class="wordmark">ADMIN<small>控制台</small></div>
+      <button class="ico-btn mini" id="admin-save">SAVE</button>
+    </div>
+    <div class="admin-nav">
+      <button class="on" data-tab="overview">概览</button>
+      <button data-tab="stations">站点</button>
+      <button data-tab="messages">留言</button>
+      <button data-tab="users">用户</button>
+    </div>
+    <div class="stage"><div class="admin-body" id="admin-body"></div></div>
+  </div>
+
+  <!-- ===== Composer ===== -->
+  <div class="modal" id="composer">
+    <div class="sheet">
+      <h3>写下你的日记</h3>
+      <div class="field"><label>留言</label><textarea id="c-body" placeholder="今天的现场太燃了..."></textarea></div>
+      <div class="field"><label>心情（小人表情）</label>
+        <div class="row" id="mood-row">
+          <div class="mood-pick" data-mood="🔥燃">🔥燃</div>
+          <div class="mood-pick" data-mood="😭破防">😭破防</div>
+          <div class="mood-pick" data-mood="💕心动">💕心动</div>
+          <div class="mood-pick" data-mood="✨梦幻">✨梦幻</div>
+        </div>
+      </div>
+      <div class="field"><label>评分</label>
+        <div class="row" id="star-row">
+          <span class="star-pick" data-v="1">★</span><span class="star-pick" data-v="2">★</span>
+          <span class="star-pick" data-v="3">★</span><span class="star-pick" data-v="4">★</span>
+          <span class="star-pick" data-v="5">★</span>
+        </div>
+      </div>
+      <div class="field"><label>现场图片（可选 · 自动像素化）</label><div class="img-slot" id="img-slot">+</div></div>
+      <div class="field"><label>城市标记</label><div class="row" id="city-row"></div></div>
+      <div class="auth-note" id="composer-note"></div>
+      <div class="actions"><button class="btn cancel" id="c-cancel">取消</button><button class="btn post" id="c-post">发布</button></div>
+    </div>
+  </div>
+
+  <!-- ===== 登录 ===== -->
+  <div class="modal" id="login-modal">
+    <div class="sheet">
+      <h3>进入日记本</h3>
+      <div class="login-tabs"><button class="on" data-mode="login">登录</button><button data-mode="signup">注册</button></div>
+      <div class="field"><label>昵称</label><input type="text" id="li-user" placeholder="你的昵称"></div>
+      <div class="field"><label>密码（任意，演示用）</label><input type="password" id="li-pass" placeholder="••••"></div>
+      <div class="auth-note">提示：昵称填 <b>admin</b> 可进入管理后台</div>
+      <div class="actions"><button class="btn cancel" id="li-cancel">取消</button><button class="btn post" id="li-go">进入</button></div>
+    </div>
+  </div>
+
+  <!-- ===== 站点编辑（管理后台用） ===== -->
+  <div class="modal" id="station-editor">
+    <div class="sheet">
+      <h3 id="se-title">编辑站点</h3>
+      <div class="form-grid">
+        <div class="field"><label>城市名</label><input type="text" id="se-name"></div>
+        <div class="field"><label>演出场馆</label><input type="text" id="se-venue"></div>
+        <div class="field"><label>演出日期</label><input type="date" id="se-date"></div>
+        <div class="field"><label>地图坐标（百分比 0-100）</label>
+          <div class="coord-row"><input type="text" id="se-x" placeholder="X 0-100"><input type="text" id="se-y" placeholder="Y 0-100"></div>
+        </div>
+        <div class="field"><label>主题色</label><div class="palette-row" id="se-palette"></div></div>
+        <div class="field"><label>状态</label>
+          <div class="seg" id="se-status">
+            <button data-v="upcoming">即将开演</button>
+            <button data-v="live">进行中</button>
+            <button data-v="done">已结束</button>
+          </div>
+        </div>
+        <div class="field"><label>缩写（地图标记 2 字母）</label><input type="text" id="se-code" maxlength="3"></div>
+      </div>
+      <div class="actions"><button class="btn cancel" id="se-cancel">取消</button><button class="btn post" id="se-save">保存</button></div>
+    </div>
+  </div>
+
+  <!-- ===== 大图 ===== -->
+  <div id="lightbox"><button class="close" id="lb-close">✕</button><img id="lb-img"></div>
+  <div id="toast"><span></span></div>
+</div>
+
+<script>
+/* =========================================================
+   占位小人绘制 —— 等真实素材到位后替换为精灵帧
+   ========================================================= */
+function drawNpc(canvas, frame=0){
+  const ctx=canvas.getContext('2d'); const T=canvas.width/8; ctx.clearRect(0,0,canvas.width,canvas.height);
+  const bob = (frame%2)?0:1;
+  // 像素小人 8x8 放大（占位 · 后续替换为 ChiliChill 官方小人精灵）
+  const P=[
+  "....AA..",
+  "...AAAA.",
+  "..AAAAAA",
+  "..AWWAA.",
+  "..AAAAA.",
+  "...BBB..",
+  "...B..B.",
+  "...B..B."];
+  const C={A:'#ff4d6d',W:'#fff',B:'#2a1b54'};
+  P.forEach((row,y)=>row.split('').forEach((c,x)=>{if(C[c]){ctx.fillStyle=C[c];ctx.fillRect(x*T,(y+bob)*T,T,T)}}));
+}
+drawNpc(document.getElementById('boot-npc'));
+
+/* =========================================================
+   数据层（localStorage 持久化 · 后续替换为 Supabase）
+   ========================================================= */
+const STORE_KEY='chilichill_diary_v1';
+const DEFAULT_DATA={
+  stations:[
+    {id:'s1',code:'SH',name:'上海',venue:'梅赛德斯-奔驰文化中心',date:'2026-05-17',x:22,y:30,status:'done',palette:'hot',count:0},
+    {id:'s2',code:'BJ',name:'北京',venue:'国家体育场',date:'2026-06-07',x:54,y:22,status:'done',palette:'cool',count:0},
+    {id:'s3',code:'GZ',name:'广州',venue:'宝能体育中心',date:'2026-06-21',x:74,y:62,status:'live',palette:'gold',count:0},
+    {id:'s4',code:'CD',name:'成都',venue:'凤凰山体育馆',date:'2026-07-05',x:30,y:54,status:'upcoming',palette:'violet',count:0},
+    {id:'s5',code:'WH',name:'武汉',venue:'五环体育中心',date:'2026-07-19',x:60,y:46,status:'upcoming',palette:'green',count:0},
+  ],
+  messages:[
+    {id:'m1',stationId:'s1',author:'辣条不加辣',avatar:1,official:false,body:'ChiliChill返场的时候整个场馆都在哭，那首《发光曲线》前奏一响我眼泪就下来了。这辈子值了。',mood:'🔥燃',rating:5,cityTag:'上海',image:'https://picsum.photos/seed/chili1/320/180',status:'published',createdAt:Date.now()-3*3600000},
+    {id:'m2',stationId:'s1',author:'鼓棒断了三根',avatar:2,official:false,body:'后排视角依然震撼，鼓组清晰得像在耳边敲。散场后在门口和陌生人合唱了一路。',mood:'✨梦幻',rating:5,cityTag:'上海',image:'',status:'published',createdAt:Date.now()-5*3600000},
+    {id:'m3',stationId:'s1',author:'ChiliChill 官方',avatar:0,official:true,body:'感谢上海站所有到场的你们，你们的合唱是我们听过最美的和声。下一站，广州见。',mood:'💕心动',rating:5,cityTag:'上海',image:'https://picsum.photos/seed/official1/320/180',status:'published',createdAt:Date.now()-2*3600000},
+    {id:'m4',stationId:'s2',author:'鸟巢附近迷路',avatar:4,official:false,body:'北京场设备出了一点小状况，结果乐团现场即兴了一首没听过的曲子，全场沸腾。这就是现场的魅力吧。',mood:'😭破防',rating:5,cityTag:'北京',image:'',status:'published',createdAt:Date.now()-2*86400000},
+    {id:'m5',stationId:'s2',author:'热到融化',avatar:1,official:false,body:'第一次看现场，原来live和耳机里完全不是一个东西。已原地入坑。',mood:'🔥燃',rating:4,cityTag:'北京',image:'https://picsum.photos/seed/chili2/320/180',status:'published',createdAt:Date.now()-86400000},
+    {id:'m6',stationId:'s3',author:'雨中即兴',avatar:3,official:false,body:'广州的雨说下就下，结果雨中演出更燃了，灯光打在雨幕上像极光。',mood:'✨梦幻',rating:5,cityTag:'广州',image:'',status:'published',createdAt:Date.now()-3600000},
+    {id:'m7',stationId:'s3',author:'路过游客',avatar:5,official:false,body:'不太喜欢，太吵了。',mood:'🔥燃',rating:2,cityTag:'广州',image:'',status:'hidden',createdAt:Date.now()-1800000},
+  ],
+  users:[
+    {id:'u1',username:'辣条不加辣',role:'fan',avatar:1},
+    {id:'u2',username:'鼓棒断了三根',role:'fan',avatar:2},
+    {id:'u3',username:'admin',role:'admin',avatar:0},
+  ],
+};
+let DB=load();
+function load(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||structuredClone(DEFAULT_DATA)}catch(e){return structuredClone(DEFAULT_DATA)}}
+function save(){localStorage.setItem(STORE_KEY,JSON.stringify(DB));recount()}
+function recount(){DB.stations.forEach(s=>{s.count=DB.messages.filter(m=>m.stationId===s.id&&m.status==='published').length})}
+
+/* =========================================================
+   状态
+   ========================================================= */
+let curUser=null, curStation=null, curSort='new';
+let selMood=null,selRating=0,selCity=null,selImg=null;
+let editingStationId=null, adminTab='overview', seStatus='upcoming', sePalette='hot';
+
+const $=s=>document.querySelector(s); const $$=s=>document.querySelectorAll(s);
+const show=scr=>$$('.screen').forEach(s=>s.classList.toggle('active',s.id===scr));
+function toast(t){const el=$('#toast');el.querySelector('span').textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1600)}
+function fmt(t){const d=Date.now()-t;if(d<60000)return'刚刚';if(d<3600000)return Math.floor(d/60000)+'分钟前';if(d<86400000)return Math.floor(d/3600000)+'小时前';if(d<7*86400000)return Math.floor(d/86400000)+'天前';return new Date(t).toLocaleDateString('zh-CN')}
+const PALETTES={hot:'#ff4d6d',cool:'#37d7e2',gold:'#ffd23f',violet:'#b388ff',green:'#7cf28a',warn:'#ff9f43'};
+const STATUS_LABEL={live:'进行中',upcoming:'即将开演',done:'已结束'};
+
+/* =========================================================
+   地形
+   ========================================================= */
+function drawTerrain(){
+  const c=$('#terrain'),ctx=c.getContext('2d');
+  const W=c.width=c.clientWidth,H=c.height=c.clientHeight,T=14,cols=Math.ceil(W/T),rows=Math.ceil(H/T);
+  const h=(x,y)=>{let n=(x*73856093^y*19349663)>>>0;n=(n*1103515245+12345)>>>0;return (n%1000)/1000};
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    const n=h(x,y),v=0.5+0.5*Math.sin(x*0.4+y*0.3);
+    ctx.fillStyle=n<0.5?'#163061':n<0.8?(v>0.6?'#1b3a6b':'#163061'):(v>0.5?'#23508a':'#1b3a6b');
+    ctx.fillRect(x*T,y*T,T,T);
+    if(h(x*3,y*3)>0.93){ctx.fillStyle='rgba(180,220,255,.35)';ctx.fillRect(x*T+T/4,y*T+T/4,T/2,T/2)}
+  }
+  DB.stations.forEach(s=>{
+    const cx=Math.round(s.x/100*cols),cy=Math.round(s.y/100*rows),R=2.4+h(s.id.length*7,7)*1.6;
+    for(let y=-5;y<=5;y++)for(let x=-5;x<=5;x++){
+      const d=Math.sqrt(x*x+y*y)+h(cx+x,cy+y)*0.8-0.4;if(d>R)continue;
+      const gx=cx+x,gy=cy+y;if(gx<0||gy<0||gx>=cols||gy>=rows)continue;
+      ctx.fillStyle=d>R-1?'#d9c388':(h(gx*2,gy*2)>0.78?'#1d5e36':'#2f7d4f');ctx.fillRect(gx*T,gy*T,T,T);
+      if(h(gx,gy+99)>0.82&&d<R-1){ctx.fillStyle='#6b6157';ctx.fillRect(gx*T+2,gy*T+3,T-4,T-3);ctx.fillStyle='#fff';ctx.fillRect(gx*T+4,gy*T+3,3,2)}
+      if(h(gx*5,gy*5)>0.85&&d<R-1){ctx.fillStyle='#1d5e36';ctx.fillRect(gx*T+4,gy*T+4,4,4)}
+    }
+  });
+}
+
+/* =========================================================
+   地图渲染
+   ========================================================= */
+function renderMap(){
+  // 路线
+  const pts=DB.stations.map(s=>`${s.x},${s.y}`).join(' ');
+  $('#route').innerHTML=`<polyline class="dash" points="${pts}" vector-effect="non-scaling-stroke"/>`;
+  // 进度
+  $('#tour-progress').innerHTML=DB.stations.map(s=>`<i class="${s.status==='done'?'done':''}${s.status==='live'?'cur':''}"></i>`).join('');
+  // 标记
+  $('#markers').innerHTML=DB.stations.map((s,i)=>{
+    const cls=['marker', i%2?'alt':'gold', s.status==='done'?'done':'', s.palette==='gold'?'gold':''].filter(Boolean).join(' ');
+    const color=PALETTES[s.palette]||PALETTES.hot;
+    return `<div class="${cls}" style="left:${s.x}%;top:${s.y}%" data-station="${s.id}">
+      <div class="badge" style="background:${color}">${s.code}</div>
+      <svg class="pin" viewBox="0 0 24 30"><path d="M12 0C5 0 0 5 0 12c0 8 12 18 12 18s12-10 12-18C24 5 19 0 12 0z" fill="${color}"/></svg>
+      <div class="label">${s.name}</div></div>`;
+  }).join('');
+  $$('#markers .marker').forEach(p=>p.onclick=()=>openWall(p.dataset.station));
+}
+function openMap(){show('map-view');setTimeout(drawTerrain,30);renderMap()}
+
+/* =========================================================
+   留言墙
+   ========================================================= */
+function openWall(id){
+  curStation=DB.stations.find(s=>s.id===id);if(!curStation)return;
+  $('#wall-wm').textContent=curStation.code;
+  renderWall();show('wall-view');
+}
+function renderWall(){
+  if(!curStation){
+    $('#wall-wm').textContent='SELECT';
+    $('#wall-feed').innerHTML=`<div class="empty"><canvas class="npc" width="46" height="46" id="welcome-npc"></canvas><div>← 在左侧地图点选一座城市<br>查看该站粉丝日记</div></div>`;
+    const w=$('#welcome-npc'); if(w) drawNpc(w);
+    $('#post-fab').classList.add('disabled',!curUser);
+    return;
+  }
+  const s=curStation;
+  let msgs=DB.messages.filter(m=>m.stationId===s.id&&m.status==='published');
+  msgs.sort((a,b)=>curSort==='new'?b.createdAt-a.createdAt:a.createdAt-b.createdAt);
+  // 官方置顶
+  msgs.sort((a,b)=>(b.official?1:0)-(a.official?1:0));
+  let html=`<div class="station-head">
+    <div class="city">${s.name}</div>
+    <div class="date">${s.date}</div>
+    <div class="venue">${s.venue}</div>
+    <div class="count">共 ${msgs.filter(m=>!m.official).length} 条粉丝日记</div>
+    <div class="badge-status ${s.status}">${STATUS_LABEL[s.status]}</div>
+  </div>`;
+  if(!msgs.length){
+    html+=`<div class="empty"><canvas class="npc" width="46" height="46" id="empty-npc"></canvas><div>这里还没有日记<br>成为第一个写下回忆的人吧</div></div>`;
+  }else{
+    msgs.forEach(m=>{
+      const stars='★'.repeat(m.rating)+'<span class="off">'+'★'.repeat(5-m.rating)+'</span>';
+      const pic=m.image?`<img class="pic" src="${m.image}" data-img="${m.image}">`:'';
+      const av=m.official?'npc-av':`a${m.avatar}`;
+      html+=`<div class="card ${m.official?'official':''}">
+        <div class="card-head"><div class="avatar ${av}">${m.author[0]}</div>
+        <div class="who"><b>${m.author}</b><div class="meta">${m.cityTag} · ${fmt(m.createdAt)}</div></div></div>
+        <div class="body">${m.body}</div>${pic}
+        <div class="mood-row"><span class="mood">${m.mood}</span><span class="stars-rating">${stars}</span></div></div>`;
+    });
+  }
+  $('#wall-feed').innerHTML=html;
+  const en=$('#empty-npc'); if(en) drawNpc(en);
+  $$('#wall-feed .pic').forEach(img=>img.onclick=()=>openLightbox(img.dataset.img));
+  $('#post-fab').classList.toggle('disabled',!curUser);
+}
+$('#back-btn').onclick=openMap;
+$('#sort-btn').onclick=()=>{curSort=curSort==='new'?'old':'new';$('#sort-btn').textContent=curSort==='new'?'新':'旧';renderWall()};
+
+/* =========================================================
+   登录
+   ========================================================= */
+let loginMode='login';
+$('#auth-btn').onclick=()=>{$('#login-modal').classList.add('active')};
+$('#li-cancel').onclick=()=>$('#login-modal').classList.remove('active');
+$$('.login-tabs button').forEach(b=>b.onclick=()=>{loginMode=b.dataset.mode;$$('.login-tabs button').forEach(x=>x.classList.toggle('on',x===b))});
+$('#li-go').onclick=()=>{
+  const u=$('#li-user').value.trim(); if(!u){toast('输入昵称');return}
+  const admin=u.toLowerCase()==='admin';
+  curUser={username:u,role:admin?'admin':'fan',avatar:admin?0:Math.floor(Math.random()*5)+1};
+  $('#auth-btn').textContent=curUser.role==='admin'?'ADMIN':'LOGOUT';
+  $('#auth-btn').classList.toggle('on',true);
+  $('#login-modal').classList.remove('active');
+  toast('欢迎，'+u+(admin?' · 管理员':''));
+  if(curStation) renderWall();
+};
+$('#auth-btn').onclick=()=>{
+  if(curUser){curUser=null;$('#auth-btn').textContent='LOGIN';$('#auth-btn').classList.remove('on');toast('已退出');if(curStation)renderWall();return}
+  $('#login-modal').classList.add('active');
+};
+
+/* =========================================================
+   Composer
+   ========================================================= */
+$('#post-fab').onclick=()=>{
+  if(!curUser){toast('请先登录');$('#login-modal').classList.add('active');return}
+  // 填充城市选项
+  $('#city-row').innerHTML=DB.stations.map(s=>`<div class="city-pick" data-city="${s.name}">${s.name}</div>`).join('');
+  selCity=curStation.name;
+  $$('#city-row .city-pick').forEach(e=>e.onclick=()=>{selCity=e.dataset.city;refreshCityPick()});
+  refreshCityPick();
+  $('#composer').classList.add('active');
+};
+function refreshCityPick(){$$('#city-row .city-pick').forEach(e=>e.classList.toggle('on',e.dataset.city===selCity))}
+$('#c-cancel').onclick=closeComposer;
+function closeComposer(){$('#composer').classList.remove('active');resetComposer()}
+function resetComposer(){selMood=selRating=selImg=null;$('#c-body').value='';$$('.mood-pick,.star-pick').forEach(e=>e.classList.remove('on'));$('#img-slot').className='img-slot';$('#img-slot').textContent='+';$('#composer-note').innerHTML=curUser?`以 <b>${curUser.username}</b> 身份发布`:'请先登录'}
+$$('.mood-pick').forEach(e=>e.onclick=()=>{selMood=e.dataset.mood;$$('.mood-pick').forEach(x=>x.classList.toggle('on',x===e))});
+$$('.star-pick').forEach(e=>e.onclick=()=>{selRating=+e.dataset.v;$$('.star-pick').forEach(x=>x.classList.toggle('on',+x.dataset.v<=selRating))});
+$('#img-slot').onclick=()=>{const seed=Math.floor(Math.random()*9999);selImg=`https://picsum.photos/seed/u${seed}/320/180`;$('#img-slot').className='img-slot has';$('#img-slot').style.backgroundImage=`url(${selImg})`;$('#img-slot').textContent='';toast('已像素化上传')};
+$('#c-post').onclick=()=>{
+  const body=$('#c-body').value.trim();if(!body){toast('写点什么吧');return}
+  if(!selMood){toast('选个心情');return}
+  DB.messages.unshift({id:'m'+Date.now(),stationId:curStation.id,author:curUser.username,avatar:curUser.avatar,official:false,body,mood:selMood,rating:selRating||3,cityTag:selCity||curStation.name,image:selImg||'',status:'published',createdAt:Date.now()});
+  save();closeComposer();renderWall();toast('日记已发布 ✦');
+};
+
+/* =========================================================
+   大图
+   ========================================================= */
+function openLightbox(src){$('#lb-img').src=src;$('#lightbox').classList.add('active')}
+$('#lb-close').onclick=()=>$('#lightbox').classList.remove('active');
+$('#lightbox').onclick=e=>{if(e.target.id==='lightbox')$('#lightbox').classList.remove('active')};
+
+/* =========================================================
+   管理后台
+   ========================================================= */
+$('#admin-entry').onclick=()=>{
+  if(!curUser||curUser.role!=='admin'){toast('需要管理员登录');$('#login-modal').classList.add('active');return}
+  show('admin-view');renderAdmin();
+};
+$('#admin-exit').onclick=()=>{openMap()};
+$('#admin-save').onclick=()=>{save();toast('已保存到本地')};
+$$('.admin-nav button').forEach(b=>b.onclick=()=>{adminTab=b.dataset.tab;$$('.admin-nav button').forEach(x=>x.classList.toggle('on',x===b));renderAdmin()});
+
+function renderAdmin(){
+  const body=$('#admin-body');
+  if(adminTab==='overview'){
+    const total=DB.messages.length, hidden=DB.messages.filter(m=>m.status==='hidden').length, official=DB.messages.filter(m=>m.official).length;
+    body.innerHTML=`<div class="admin-h">概览</div>
+      <div class="stat-grid">
+        <div class="stat"><b>${DB.stations.length}</b><span>巡演站点</span></div>
+        <div class="stat"><b>${total}</b><span>留言总数</span></div>
+        <div class="stat"><b>${official}</b><span>官方留言</span></div>
+        <div class="stat"><b>${hidden}</b><span>已隐藏</span></div>
+      </div>
+      <div class="admin-h">站点速览</div>
+      ${DB.stations.map(s=>`<div class="admin-item"><div class="ai-top"><div><div class="ai-title">${s.name}</div><div class="ai-sub">${s.venue} · ${s.date} · ${DB.messages.filter(m=>m.stationId===s.id&&m.status==='published').length} 条</div></div><span class="admin-tag ${s.status}">${STATUS_LABEL[s.status]}</span></div></div>`).join('')}`;
+  }
+  else if(adminTab==='stations'){renderAdminStations(body)}
+  else if(adminTab==='messages'){renderAdminMessages(body)}
+  else if(adminTab==='users'){renderAdminUsers(body)}
+}
+
+function renderAdminStations(body){
+  body.innerHTML=`<div class="admin-h">站点管理</div><div id="station-list"></div>
+    <div class="add-bar"><button class="btn post" id="add-station">+ 新增站点</button></div>`;
+  const list=$('#station-list');
+  list.innerHTML=DB.stations.map(s=>`<div class="admin-item">
+    <div class="ai-top"><div><div class="ai-title">${s.name} <span style="color:var(--dim);font-size:11px">(${s.code})</span></div>
+    <div class="ai-sub">${s.venue} · ${s.date} · 坐标 ${s.x},${s.y}</div></div>
+    <span class="admin-tag ${s.status}">${STATUS_LABEL[s.status]}</span></div>
+    <div class="ai-actions"><button class="mini-btn edit" data-edit="${s.id}">编辑</button><button class="mini-btn del" data-del="${s.id}">删除</button></div></div>`).join('');
+  list.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openStationEditor(b.dataset.edit));
+  list.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('删除该站点？其下留言会保留但脱离站点。')){DB.stations=DB.stations.filter(s=>s.id!==b.dataset.del);save();renderAdmin()}});
+  $('#add-station').onclick=()=>openStationEditor(null);
+}
+
+function openStationEditor(id){
+  editingStationId=id; const s=id?DB.stations.find(x=>x.id===id):null;
+  $('#se-title').textContent=s?'编辑站点':'新增站点';
+  $('#se-name').value=s?s.name:''; $('#se-venue').value=s?s.venue:''; $('#se-date').value=s?s.date:'';
+  $('#se-x').value=s?s.x:50; $('#se-y').value=s?s.y:50; $('#se-code').value=s?s.code:'';
+  seStatus=s?s.status:'upcoming'; sePalette=s?s.palette:'hot';
+  $('#se-palette').innerHTML=Object.entries(PALETTES).map(([k,v])=>`<div class="sw ${k===sePalette?'on':''}" data-p="${k}" style="background:${v}"></div>`).join('');
+  $$('#se-palette .sw').forEach(e=>e.onclick=()=>{sePalette=e.dataset.p;$$('#se-palette .sw').forEach(x=>x.classList.toggle('on',x===e))});
+  $$('#se-status button').forEach(b=>b.classList.toggle('on',b.dataset.v===seStatus));
+  $$('#se-status button').forEach(b=>b.onclick=()=>{seStatus=b.dataset.v;$$('#se-status button').forEach(x=>x.classList.toggle('on',x===b))});
+  $('#station-editor').classList.add('active');
+}
+$('#se-cancel').onclick=()=>$('#station-editor').classList.remove('active');
+$('#se-save').onclick=()=>{
+  const name=$('#se-name').value.trim(); if(!name){toast('填城市名');return}
+  const data={name,venue:$('#se-venue').value.trim()||'待定',date:$('#se-date').value||'待定',
+    x:Math.max(5,Math.min(95,+$('#se-x').value||50)),y:Math.max(8,Math.min(85,+$('#se-y').value||50)),
+    code:$('#se-code').value.trim().toUpperCase()||name.slice(0,2),status:seStatus,palette:sePalette};
+  if(editingStationId){Object.assign(DB.stations.find(s=>s.id===editingStationId),data)}
+  else{DB.stations.push({id:'s'+Date.now(),...data,count:0})}
+  save();$('#station-editor').classList.remove('active');renderAdmin();toast('站点已保存');
+};
+
+function renderAdminMessages(body){
+  body.innerHTML=`<div class="admin-h">留言管理</div>
+    <div class="search-row"><input type="text" id="msg-search" placeholder="搜索昵称 / 内容 / 城市"></div>
+    <div id="msg-list"></div>`;
+  const render=list=>{
+    $('#msg-list').innerHTML=list.length?list.map(m=>{
+      const s=DB.stations.find(x=>x.id===m.stationId);
+      return `<div class="admin-item">
+        <div class="ai-top"><div><div class="ai-title">${m.author} ${m.official?'<span class="admin-tag official">官方</span>':''} ${m.status==='hidden'?'<span class="admin-tag hidden">已隐藏</span>':''}</div>
+        <div class="ai-sub">[${s?s.name:'未知'}] ${m.cityTag} · ${fmt(m.createdAt)} · ${m.mood} ${'★'.repeat(m.rating)}</div></div></div>
+        <div class="body" style="font-size:13px;margin:6px 0">${m.body}</div>
+        <div class="ai-actions">
+          <button class="mini-btn pin" data-pin="${m.id}">${m.official?'取消官方':'置官方'}</button>
+          <button class="mini-btn hide" data-hide="${m.id}">${m.status==='hidden'?'恢复':'隐藏'}</button>
+          <button class="mini-btn del" data-del="${m.id}">删除</button>
+        </div></div>`;
+    }).join(''):'<div class="empty">无匹配留言</div>';
+    $('#msg-list').querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>{const m=DB.messages.find(x=>x.id===b.dataset.pin);m.official=!m.official;save();renderAdmin()});
+    $('#msg-list').querySelectorAll('[data-hide]').forEach(b=>b.onclick=()=>{const m=DB.messages.find(x=>x.id===b.dataset.hide);m.status=m.status==='hidden'?'published':'hidden';save();renderAdmin()});
+    $('#msg-list').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('删除该留言？')){DB.messages=DB.messages.filter(x=>x.id!==b.dataset.del);save();renderAdmin()}});
+  };
+  const all=[...DB.messages].sort((a,b)=>b.createdAt-a.createdAt); render(all);
+  $('#msg-search').oninput=e=>{const q=e.target.value.trim().toLowerCase();render(all.filter(m=>m.author.toLowerCase().includes(q)||m.body.toLowerCase().includes(q)||m.cityTag.toLowerCase().includes(q)))};
+}
+
+function renderAdminUsers(body){
+  body.innerHTML=`<div class="admin-h">用户</div>
+    <div class="stat-grid"><div class="stat"><b>${DB.users.length}</b><span>注册用户</span></div><div class="stat"><b>${DB.users.filter(u=>u.role==='admin').length}</b><span>管理员</span></div></div>
+    ${DB.users.map(u=>`<div class="admin-item"><div class="ai-top"><div><div class="ai-title">${u.username}</div><div class="ai-sub">ID ${u.id}</div></div><span class="admin-tag ${u.role==='admin'?'official':''}">${u.role==='admin'?'管理员':'粉丝'}</span></div></div>`).join('')}`;
+}
+
+/* =========================================================
+   启动
+   ========================================================= */
+window.addEventListener('resize',()=>{if($('#map-view').classList.contains('active')||window.matchMedia('(min-width:980px)').matches)drawTerrain()});
+recount();
+setTimeout(()=>{$('#boot').classList.add('done');openMap();renderWall()},2200);
+</script>
+</body>
+</html>

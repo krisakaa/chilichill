@@ -1,0 +1,14 @@
+node_modules
+.next
+.expo
+dist
+.turbo
+*.log
+.DS_Store
+.env
+.env.local
+.env*.local
+coverage
+.webpack
+.idea
+.vscode
