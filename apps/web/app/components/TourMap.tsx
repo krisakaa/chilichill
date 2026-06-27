@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PALETTES, type Station, type StationStatus } from '@chili/shared';
 import { useApp } from '../store';
+import { CityDrawer, useCityGroups } from './CityDrawer';
 
 const BOARD_W = 72;
 const BOARD_H = 68;
@@ -158,8 +159,9 @@ function markerPosition(station: Station, provinceCenters: Record<string, Projec
 }
 
 export function TourMap() {
-  const { stations, openWall, openCityWall, openAdmin, user, logout, setLoginOpen, screen } = useApp();
+  const { stations, curStation, openWall, openCityWall, openAdmin, user, logout, setLoginOpen, screen } = useApp();
   const [china, setChina] = useState<ChinaGeoJson | null>(null);
+  const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
   const active = screen === 'map';
 
   useEffect(() => {
@@ -179,18 +181,7 @@ export function TourMap() {
     china?.features.filter((feature) => feature.properties.name && feature.properties.name !== '') ?? []
   ), [china]);
 
-  const routeStations = useMemo(() => (
-    [...stations].sort((a, b) => a.date.localeCompare(b.date) || a.cityName.localeCompare(b.cityName))
-  ), [stations]);
-
-  const cityGroups = useMemo(() => {
-    const groups = new Map<string, Station[]>();
-    for (const station of routeStations) {
-      const key = `${station.provinceAdcode ?? normalizeProvinceName(station.provinceName)}:${station.cityName}`;
-      groups.set(key, [...(groups.get(key) ?? []), station]);
-    }
-    return [...groups.values()];
-  }, [routeStations]);
+  const cityGroups = useCityGroups(stations);
 
   const provinceCenters = useMemo(() => {
     const centers: Record<string, ProjectedPoint> = {};
@@ -207,10 +198,24 @@ export function TourMap() {
       <div className="topbar">
         <button className="ico-btn mini" onClick={openAdmin}>?</button>
         <div className="wordmark">ChiliChill<small>TOUR DIARY</small></div>
-        <button className="ico-btn on" onClick={() => (user ? logout() : setLoginOpen(true))}>
-          {user ? (user.role === 'admin' ? 'ADMIN' : 'LOGOUT') : 'LOGIN'}
-        </button>
+        <div className="map-actions">
+          <button className="ico-btn city-menu-btn" onClick={() => setCityDrawerOpen(true)} disabled={cityGroups.length === 0}>CITY</button>
+          <button className="ico-btn on" onClick={() => (user ? logout() : setLoginOpen(true))}>
+            {user ? (user.role === 'admin' ? 'ADMIN' : 'LOGOUT') : 'LOGIN'}
+          </button>
+        </div>
       </div>
+
+      <CityDrawer
+        open={cityDrawerOpen}
+        cityGroups={cityGroups}
+        currentStation={curStation}
+        onClose={() => setCityDrawerOpen(false)}
+        onSelect={(station, group) => {
+          openCityWall(station, group);
+          setCityDrawerOpen(false);
+        }}
+      />
 
       <div className="stage">
         <div className="map-frame abstract-map" role="img" aria-label={TEXT.aria}>

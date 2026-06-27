@@ -1,13 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { drawNpc, fmtTime, renderStars } from '@chili/ui';
-import { STATUS_LABEL, type Station } from '@chili/shared';
+import { STATUS_LABEL } from '@chili/shared';
 import { useApp } from '../store';
+import { CityDrawer, useCityGroups } from './CityDrawer';
 
-function cityGroupKey(station: Station) {
-  return `${station.provinceAdcode ?? station.provinceName}:${station.cityName}`;
-}
 
 export function MessageWall() {
   const {
@@ -17,16 +15,7 @@ export function MessageWall() {
   const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
   const active = screen === 'wall';
 
-  const cityGroups = useMemo(() => {
-    const groups = new Map<string, Station[]>();
-    for (const station of [...stations].sort((a, b) => a.date.localeCompare(b.date) || a.cityName.localeCompare(b.cityName))) {
-      const key = cityGroupKey(station);
-      groups.set(key, [...(groups.get(key) ?? []), station]);
-    }
-    return [...groups.values()];
-  }, [stations]);
-
-  const currentCityKey = curStation ? cityGroupKey(curStation) : '';
+  const cityGroups = useCityGroups(stations);
 
   const sorted = [...messages].sort((a, b) =>
     sortNew ? b.createdAt - a.createdAt : a.createdAt - b.createdAt,
@@ -43,37 +32,16 @@ export function MessageWall() {
         </div>
       </div>
 
-      <div className={`city-drawer-layer ${cityDrawerOpen ? 'open' : ''}`} aria-hidden={!cityDrawerOpen}>
-        <button className="city-drawer-shade" type="button" aria-label="关闭城市菜单" onClick={() => setCityDrawerOpen(false)} />
-        <aside className="city-drawer" aria-label="城市选择">
-          <div className="city-drawer-head">
-            <span>CITIES</span>
-            <button className="ico-btn mini" type="button" onClick={() => setCityDrawerOpen(false)}>X</button>
-          </div>
-          <div className="city-drawer-list">
-            {cityGroups.map((group) => {
-              const station = group[0];
-              const key = cityGroupKey(station);
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={`city-drawer-item ${key === currentCityKey ? 'on' : ''}`}
-                  onClick={() => {
-                    openCityWall(station, group);
-                    setCityDrawerOpen(false);
-                  }}
-                >
-                  <span className="city-drawer-city">{station.cityName}</span>
-                  <span className="city-drawer-meta">{group.length > 1 ? `${group.length} STOPS` : station.date}</span>
-                  <span className={`city-drawer-status ${station.status}`}>{STATUS_LABEL[station.status]}</span>
-                </button>
-              );
-            })}
-          </div>
-        </aside>
-      </div>
-
+      <CityDrawer
+        open={cityDrawerOpen}
+        cityGroups={cityGroups}
+        currentStation={curStation}
+        onClose={() => setCityDrawerOpen(false)}
+        onSelect={(station, group) => {
+          openCityWall(station, group);
+          setCityDrawerOpen(false);
+        }}
+      />
       <div className="stage">
         {!curStation ? (
           <div className="empty">

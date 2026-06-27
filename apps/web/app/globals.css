@@ -260,7 +260,7 @@ html, body { height: 100%; overflow: hidden; background: #000;
   .map-legend { right: 9px; bottom: 9px; width: 72px; font-size: 10px; }
   .map-legend span { padding: 4px 4px; }
   #wall-view .stage { padding-bottom: 72px; }
-  .wall-actions { gap: 5px; }
+  .map-actions, .wall-actions { gap: 5px; }
   .station-head { padding: 10px 12px; }
   .station-head .city { font-size: 13px; }
   .station-head .date { font-size: 12px; margin-top: 4px; }
@@ -273,7 +273,7 @@ html, body { height: 100%; overflow: hidden; background: #000;
 }
 
 /* ?????*/
-.wall-actions { display: flex; align-items: center; gap: 6px; }
+.map-actions, .wall-actions { display: flex; align-items: center; gap: 6px; }
 .city-menu-btn:disabled { opacity: .5; cursor: default; }
 .city-drawer-layer { position: absolute; inset: 0; z-index: 70; pointer-events: none; }
 .city-drawer-layer.open { pointer-events: auto; }
@@ -329,7 +329,7 @@ html, body { height: 100%; overflow: hidden; background: #000;
 
 @media (max-width: 520px) {
   #wall-view .stage { padding-bottom: 72px; }
-  .wall-actions { gap: 5px; }
+  .map-actions, .wall-actions { gap: 5px; }
   .station-head { padding: 10px 12px; }
   .station-head .city { font-size: 13px; }
   .station-head .date { font-size: 12px; margin-top: 4px; }
