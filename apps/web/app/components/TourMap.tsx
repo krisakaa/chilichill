@@ -277,7 +277,7 @@ export function TourMap() {
               const color = PALETTES[station.palette];
               return (
                 <g key={`${station.provinceAdcode ?? station.provinceName}-${station.cityName}`} className="block-marker" onClick={() => openCityWall(station, group)}>
-                  <circle className="marker-hit" cx={center.x} cy={center.y} r="4.2" />
+                  <circle className="marker-hit" cx={center.x} cy={center.y} r={desktopMap ? '2.2' : '4.2'} />
                   <circle className="marker-dot" cx={center.x} cy={center.y} r={group.length > 1 ? '1.28' : '1.08'} style={{ fill: color }} />
                 </g>
               );
