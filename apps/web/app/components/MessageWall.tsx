@@ -9,7 +9,7 @@ import { CityDrawer, useCityGroups } from './CityDrawer';
 
 export function MessageWall() {
   const {
-    stations, curStation, curCityStations, messages, sortNew, toggleSort, backToMap, openCityWall,
+    stations, curStation, curCityStations, curSwitchStations, messages, sortNew, toggleSort, backToMap, openCityWall,
     user, setComposerOpen, setLoginOpen, setLightbox, showToast, screen,
   } = useApp();
   const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
@@ -58,6 +58,19 @@ export function MessageWall() {
                 <div className="station-list">
                   {curCityStations.map((station) => (
                     <span key={station.id}>{station.date} · {station.venue}</span>
+                  ))}
+                </div>
+              )}
+              {curSwitchStations.length > 1 && (
+                <div className="city-switch-list">
+                  {curSwitchStations.map((station) => (
+                    <button
+                      key={station.id}
+                      className={station.id === curStation.id ? 'on' : ''}
+                      onClick={() => openCityWall(station, [station], curSwitchStations)}
+                    >
+                      {station.cityName}
+                    </button>
                   ))}
                 </div>
               )}

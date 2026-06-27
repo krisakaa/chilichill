@@ -299,6 +299,12 @@ html, body { height: 100%; overflow: hidden; background: #000;
 .station-head .venue { font-size: 12px; color: var(--dim); margin-top: 3px; }
 .station-list { display: grid; gap: 4px; margin-top: 8px; }
 .station-list span { display: block; font-size: 11px; color: var(--ink); background: rgba(10,5,24,.34); padding: 4px 6px; box-shadow: 0 0 0 1px rgba(90,69,146,.55); }
+.city-switch-list { display: none; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.city-switch-list button { border: 0; font-family: 'Press Start 2P'; font-size: 7px; color: var(--ink); background: rgba(10,5,24,.5); padding: 6px 7px; cursor: pointer; box-shadow: 0 0 0 1px rgba(244,231,211,.72), 2px 2px 0 var(--shadow); }
+.city-switch-list button.on { background: var(--gold); color: var(--shadow); }
+@media (min-width: 980px) {
+  .city-switch-list { display: flex; }
+}
 .station-head .count { font-size: 12px; color: var(--dim); margin-top: 7px; }
 .station-head .badge-status { display: inline-block; margin-top: 8px; font-family: 'Press Start 2P'; font-size: 7px;
   padding: 4px 7px; background: var(--bg0); box-shadow: 0 0 0 1px var(--line); color: var(--gold); }

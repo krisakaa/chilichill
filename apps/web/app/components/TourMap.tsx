@@ -162,7 +162,16 @@ export function TourMap() {
   const { stations, curStation, openWall, openCityWall, openAdmin, user, logout, setLoginOpen, screen } = useApp();
   const [china, setChina] = useState<ChinaGeoJson | null>(null);
   const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
+  const [desktopMap, setDesktopMap] = useState(false);
   const active = screen === 'map';
+
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 980px)');
+    const update = () => setDesktopMap(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -192,6 +201,18 @@ export function TourMap() {
     }
     return centers;
   }, [features, stations]);
+
+  const desktopCityGroups = useMemo(() => {
+    const groups = new Map<string, Station[]>();
+    for (const group of cityGroups) {
+      const center = markerPosition(group[0], provinceCenters);
+      const key = `${center.x.toFixed(2)},${center.y.toFixed(2)}`;
+      groups.set(key, [...(groups.get(key) ?? []), ...group]);
+    }
+    return [...groups.values()].map((group) => [...group].sort((a, b) => b.date.localeCompare(a.date)));
+  }, [cityGroups, provinceCenters]);
+
+  const visibleCityGroups = desktopMap ? desktopCityGroups : cityGroups;
 
   return (
     <div className={`screen ${active ? 'active' : ''}`} id="map-view">
@@ -244,13 +265,13 @@ export function TourMap() {
 
             <polyline
               className="block-route"
-              points={cityGroups.map((group) => {
+              points={visibleCityGroups.map((group) => {
                 const center = markerPosition(group[0], provinceCenters);
                 return `${center.x.toFixed(2)},${center.y.toFixed(2)}`;
               }).join(' ')}
             />
 
-            {cityGroups.map((group) => {
+            {visibleCityGroups.map((group) => {
               const station = group[0];
               const center = markerPosition(station, provinceCenters);
               const color = PALETTES[station.palette];

@@ -25,8 +25,9 @@ interface AppContextValue {
 
   curStation: Station | null;
   curCityStations: Station[];
+  curSwitchStations: Station[];
   openWall: (s: Station) => void;
-  openCityWall: (s: Station, cityStations: Station[]) => void;
+  openCityWall: (s: Station, cityStations: Station[], switchStations?: Station[]) => void;
   backToMap: () => void;
 
   messages: Message[];
@@ -71,6 +72,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [stations, setStations] = useState<Station[]>([]);
   const [curStation, setCurStation] = useState<Station | null>(null);
   const [curCityStations, setCurCityStations] = useState<Station[]>([]);
+  const [curSwitchStations, setCurSwitchStations] = useState<Station[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [sortNew, setSortNew] = useState(true);
@@ -94,6 +96,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setStations(s);
     setCurStation((prev) => (prev ? s.find((x) => x.id === prev.id) ?? null : null));
     setCurCityStations((prev) => prev.length ? s.filter((station) => prev.some((item) => item.id === station.id)) : []);
+    setCurSwitchStations((prev) => prev.length ? s.filter((station) => prev.some((item) => item.id === station.id)) : []);
   }, []);
 
   const refreshMessages = useCallback(async () => {
@@ -117,12 +120,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const openWall = useCallback((s: Station) => {
     setCurStation(s);
     setCurCityStations([s]);
+    setCurSwitchStations([]);
     setScreen('wall');
   }, []);
 
-  const openCityWall = useCallback((s: Station, cityStations: Station[]) => {
+  const openCityWall = useCallback((s: Station, cityStations: Station[], switchStations?: Station[]) => {
+    const uniqueCities = new Map(cityStations.map((station) => [station.cityName, station]));
     setCurStation(s);
-    setCurCityStations(cityStations);
+    setCurCityStations(uniqueCities.size > 1 ? [s] : cityStations);
+    setCurSwitchStations(switchStations ?? (uniqueCities.size > 1 ? [...uniqueCities.values()].sort((a, b) => b.date.localeCompare(a.date)) : []));
     setScreen('wall');
   }, []);
 
@@ -196,7 +202,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppContextValue = {
     booted, screen, setScreen,
     stations, refreshStations,
-    curStation, curCityStations, openWall, openCityWall, backToMap,
+    curStation, curCityStations, curSwitchStations, openWall, openCityWall, backToMap,
     messages, refreshMessages, sortNew, toggleSort,
     user, login, logout,
     toast, showToast, submitMessage, openAdmin,
