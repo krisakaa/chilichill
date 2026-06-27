@@ -31,18 +31,19 @@ const TEXT = {
   hintSuffix: '座巡演城市 · 行政区划路线',
 };
 
-const PROVINCE_TONES = ['plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'pink', 'yellow', 'yellow', 'blue', 'plain', 'orange', 'red', 'plain', 'yellow', 'yellow', 'blue', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain', 'yellow', 'blue'];
-
 type Coord = readonly [number, number];
 type Ring = Coord[];
 type Polygon = Ring[];
 type MultiPolygon = Polygon[];
+type ProjectedPoint = { x: number; y: number };
 
 interface ChinaFeature {
   type: 'Feature';
   properties: {
     name?: string;
     adcode?: number;
+    center?: Coord;
+    centroid?: Coord;
   };
   geometry: {
     type: 'Polygon' | 'MultiPolygon';
@@ -59,6 +60,13 @@ function project([lng, lat]: Coord) {
   const x = MAP_PAD_X + ((lng - CHINA_BOUNDS.minLng) / (CHINA_BOUNDS.maxLng - CHINA_BOUNDS.minLng)) * MAP_W;
   const y = MAP_PAD_Y + ((CHINA_BOUNDS.maxLat - lat) / (CHINA_BOUNDS.maxLat - CHINA_BOUNDS.minLat)) * MAP_H;
   return { x, y };
+}
+
+function percentToPoint(x: number, y: number) {
+  return {
+    x: MAP_PAD_X + (x / 100) * MAP_W,
+    y: MAP_PAD_Y + (y / 100) * MAP_H,
+  };
 }
 
 function pathFromRing(ring: Ring) {
@@ -84,6 +92,9 @@ function pathFromFeature(feature: ChinaFeature) {
 }
 
 function centerFromFeature(feature: ChinaFeature) {
+  const rawCenter = feature.properties.center ?? feature.properties.centroid;
+  if (rawCenter) return project(rawCenter);
+
   const polygons: MultiPolygon = feature.geometry.type === 'Polygon'
     ? [feature.geometry.coordinates as Polygon]
     : feature.geometry.coordinates as MultiPolygon;
@@ -110,31 +121,40 @@ function centerFromFeature(feature: ChinaFeature) {
   return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
 }
 
+function normalizeProvinceName(value?: string) {
+  return (value ?? '')
+    .trim()
+    .replace(/^(内蒙古|广西|宁夏|新疆|西藏).*$/u, '$1')
+    .replace(/^(香港|澳门).*$/u, '$1')
+    .replace(/(特别行政区|壮族自治区|回族自治区|维吾尔自治区|自治区|省|市)$/u, '');
+}
+
 function featureMatchesStation(feature: ChinaFeature, station: Station) {
   const adcode = feature.properties.adcode;
-  const name = feature.properties.name;
-  return (station.provinceAdcode !== undefined && adcode === station.provinceAdcode) || name === station.provinceName;
+  if (station.provinceAdcode !== undefined && adcode === station.provinceAdcode) return true;
+  return normalizeProvinceName(feature.properties.name) === normalizeProvinceName(station.provinceName);
 }
 
 function stationsForProvince(feature: ChinaFeature, stations: Station[]) {
   return stations.filter((station) => featureMatchesStation(feature, station));
 }
 
-function toneForFeature(feature: ChinaFeature, index: number, provinceStations: Station[]): StationStatus | string {
+function toneForFeature(provinceStations: Station[]): StationStatus | 'plain' {
   if (provinceStations.some((station) => station.status === 'live')) return 'live';
   if (provinceStations.some((station) => station.status === 'upcoming')) return 'upcoming';
   if (provinceStations.some((station) => station.status === 'done')) return 'done';
-  return PROVINCE_TONES[index] ?? 'plain';
+  return 'plain';
 }
 
-function markerPosition(station: Station, provinceCenters: Record<string, { x: number; y: number }>) {
+function markerPosition(station: Station, provinceCenters: Record<string, ProjectedPoint>) {
   const provinceCenter = provinceCenters[station.id];
   if (provinceCenter) return provinceCenter;
 
-  return {
-    x: MAP_PAD_X + (station.x / 100) * MAP_W,
-    y: MAP_PAD_Y + (station.y / 100) * MAP_H,
-  };
+  if (Number.isFinite(station.x) && Number.isFinite(station.y)) {
+    return percentToPoint(station.x, station.y);
+  }
+
+  return percentToPoint(50, 50);
 }
 
 export function TourMap() {
@@ -166,14 +186,14 @@ export function TourMap() {
   const cityGroups = useMemo(() => {
     const groups = new Map<string, Station[]>();
     for (const station of routeStations) {
-      const key = `${station.provinceAdcode ?? station.provinceName}:${station.cityName}`;
+      const key = `${station.provinceAdcode ?? normalizeProvinceName(station.provinceName)}:${station.cityName}`;
       groups.set(key, [...(groups.get(key) ?? []), station]);
     }
     return [...groups.values()];
   }, [routeStations]);
 
   const provinceCenters = useMemo(() => {
-    const centers: Record<string, { x: number; y: number }> = {};
+    const centers: Record<string, ProjectedPoint> = {};
     for (const station of stations) {
       const feature = features.find((item) => featureMatchesStation(item, station));
       const center = feature ? centerFromFeature(feature) : null;
@@ -202,7 +222,7 @@ export function TourMap() {
               {features.map((feature, index) => {
                 const provinceName = feature.properties.name ?? '';
                 const provinceStations = stationsForProvince(feature, stations);
-                const tone = toneForFeature(feature, index, provinceStations);
+                const tone = toneForFeature(provinceStations);
                 const firstStation = provinceStations[0];
                 return (
                   <path
@@ -230,7 +250,7 @@ export function TourMap() {
               const center = markerPosition(station, provinceCenters);
               const color = PALETTES[station.palette];
               return (
-                <g key={`${station.provinceName}-${station.cityName}`} className="block-marker" onClick={() => openCityWall(station, group)}>
+                <g key={`${station.provinceAdcode ?? station.provinceName}-${station.cityName}`} className="block-marker" onClick={() => openCityWall(station, group)}>
                   <circle cx={center.x} cy={center.y} r={group.length > 1 ? '1.28' : '1.08'} style={{ fill: color }} />
                 </g>
               );
