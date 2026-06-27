@@ -179,7 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await refreshMessages();
     await refreshStations();
     setComposerOpen(false);
-    showToast('已提交，等待审核');
+    showToast('已发布');
   }, [user, curStation, refreshMessages, refreshStations, showToast]);
 
   const refreshAdmin = useCallback(async () => {

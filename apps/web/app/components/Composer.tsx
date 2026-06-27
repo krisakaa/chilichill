@@ -117,7 +117,7 @@ export function Composer() {
         images: uploadedImages,
       });
       setBody(''); setMood(null); setRating(0); clearImages();
-      showToast('已提交，等待审核');
+      showToast('已发布');
     } catch (error) {
       showToast(error instanceof Error ? error.message : '图片上传失败');
     } finally {

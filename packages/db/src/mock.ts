@@ -151,7 +151,7 @@ export async function createMessage(input: {
     cityTag: input.cityTag,
     image: input.images?.[0] ?? input.image ?? '',
     images: input.images ?? (input.image ? [input.image] : []),
-    status: 'pending',
+    status: 'published',
     createdAt: Date.now(),
   };
   db.messages.unshift(msg);

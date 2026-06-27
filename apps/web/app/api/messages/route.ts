@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     rating: input.rating,
     city_tag: input.cityTag,
     image: images[0] ?? input.image ?? '',
-    status: 'pending',
+    status: 'published',
   }).select('*').single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
