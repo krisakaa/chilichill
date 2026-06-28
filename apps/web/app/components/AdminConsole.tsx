@@ -10,6 +10,7 @@ import { fmtTime } from '@chili/ui';
 import { useApp } from '../store';
 import { StationEditor } from './StationEditor';
 import { MessageEditor } from './MessageEditor';
+import { AdminDiagnostics } from './AdminDiagnostics';
 
 type AdminTab = 'overview' | 'stations' | 'messages';
 
@@ -52,6 +53,7 @@ export function AdminConsole() {
               <div className="stat"><b>{officialCount}</b><span>官方留言</span></div>
               <div className="stat"><b>{hiddenCount}</b><span>已隐藏</span></div>
             </div>
+            <AdminDiagnostics />
             <div className="admin-h">站点速览</div>
             {stations.map((s) => (
               <div key={s.id} className="admin-item">

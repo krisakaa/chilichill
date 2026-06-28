@@ -398,6 +398,15 @@ textarea { resize: none; height: 74px; }
 .stat { background: rgba(36,25,71,.92); padding: 12px; box-shadow: 0 0 0 1px rgba(244,231,211,.78), 2px 2px 0 var(--shadow); }
 .stat b { display: block; font-family: 'Press Start 2P'; font-size: 18px; color: var(--gold); }
 .stat span { font-size: 11px; color: var(--dim); }
+.admin-diagnostics { background: rgba(10,5,24,.42); padding: 10px; margin-bottom: 12px; box-shadow: 0 0 0 1px rgba(244,231,211,.55); }
+.diag-grid { display: grid; gap: 6px; margin-top: 9px; }
+.diag-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--ink); }
+.diag-row span { text-align: right; word-break: break-word; }
+.diag-row .ok { color: var(--green); }
+.diag-row .bad { color: var(--hot); }
+.diag-row.muted { color: var(--dim); }
+.diag-note, .diag-error { font-size: 11px; color: var(--warn); margin-top: 6px; word-break: break-word; }
+.diag-time { font-size: 10px; color: var(--muted); text-align: right; margin-top: 2px; }
 .admin-item { background: rgba(36,25,71,.92); padding: 11px; margin-bottom: 10px; box-shadow: 0 0 0 1px rgba(244,231,211,.78), 2px 2px 0 var(--shadow); }
 .admin-item .ai-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .admin-item .ai-title { font-size: 14px; color: var(--ink); font-weight: bold; }

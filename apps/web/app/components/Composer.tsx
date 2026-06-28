@@ -28,21 +28,34 @@ function humanSize(size: number) {
 }
 
 async function uploadImage(file: File): Promise<string> {
-  const response = await fetch('/api/uploads/presign', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
-  });
+  let response: Response;
+  try {
+    response = await fetch('/api/uploads/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+    });
+  } catch {
+    throw new Error('获取图片上传地址失败，请检查网络后重试');
+  }
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: '图片上传配置不可用' })) as { error?: string };
     throw new Error(error.error ?? '图片上传配置不可用');
   }
+
   const signed = await response.json() as PresignResponse;
-  const upload = await fetch(signed.uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file,
-  });
+  let upload: Response;
+  try {
+    upload = await fetch(signed.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+  } catch {
+    throw new Error('图片直传失败，请稍后重试或换网络');
+  }
+
   if (!upload.ok) throw new Error('图片上传失败，请检查 R2 CORS 配置');
   return signed.publicUrl;
 }
@@ -109,13 +122,17 @@ export function Composer() {
     try {
       setUploading(true);
       const uploadedImages = images.length ? await Promise.all(images.map((image) => uploadImage(image.file))) : [];
-      await submitMessage({
-        body: body.trim(),
-        mood,
-        rating: rating || 3,
-        cityTag: city ?? '',
-        images: uploadedImages,
-      });
+      try {
+        await submitMessage({
+          body: body.trim(),
+          mood,
+          rating: rating || 3,
+          cityTag: city ?? '',
+          images: uploadedImages,
+        });
+      } catch {
+        throw new Error('留言保存失败，请稍后重试');
+      }
       setBody(''); setMood(null); setRating(0); clearImages();
       showToast('已发布');
     } catch (error) {
