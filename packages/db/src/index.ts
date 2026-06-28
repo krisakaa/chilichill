@@ -1,4 +1,4 @@
-import type { MessageStatus, Station } from '@chili/shared';
+import type { Message, MessageStatus, Station } from '@chili/shared';
 import * as mock from './mock';
 
 function canUseApi() {
@@ -67,6 +67,11 @@ export async function setMessageStatus(id: string, status: MessageStatus) {
 export async function setMessageOfficial(id: string, official: boolean) {
   const done = await api<{ ok: boolean }>(`/api/admin/messages/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ official }) });
   if (!done) await mock.setMessageOfficial(id, official);
+}
+
+export async function updateMessage(id: string, patch: Partial<Pick<Message, 'author' | 'body' | 'cityTag' | 'mood' | 'rating' | 'status' | 'official'>>) {
+  const done = await api<{ ok: boolean }>(`/api/admin/messages/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  if (!done) await mock.updateMessage(id, patch);
 }
 
 export async function deleteMessage(id: string) {

@@ -215,6 +215,20 @@ export async function setMessageOfficial(id: string, official: boolean): Promise
   }
 }
 
+export async function updateMessage(id: string, patch: Partial<Pick<Message, 'author' | 'body' | 'cityTag' | 'mood' | 'rating' | 'status' | 'official'>>): Promise<void> {
+  const db = load();
+  const m = db.messages.find((x) => x.id === id);
+  if (!m) return;
+  if (typeof patch.author === 'string') m.author = patch.author;
+  if (typeof patch.body === 'string') m.body = patch.body;
+  if (typeof patch.cityTag === 'string') m.cityTag = patch.cityTag;
+  if (typeof patch.mood === 'string') m.mood = patch.mood;
+  if (typeof patch.rating === 'number') m.rating = patch.rating;
+  if (patch.status) m.status = patch.status;
+  if (typeof patch.official === 'boolean') m.official = patch.official;
+  persist();
+}
+
 export async function deleteMessage(id: string): Promise<void> {
   const db = load();
   db.messages = db.messages.filter((m) => m.id !== id);

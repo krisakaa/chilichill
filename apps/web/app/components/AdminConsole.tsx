@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import type { Station } from '@chili/shared';
+import type { Message, Station } from '@chili/shared';
 import { STATUS_LABEL } from '@chili/shared';
 import {
-  deleteStation, setMessageStatus, setMessageOfficial, deleteMessage, resetData, upsertStation,
+  deleteStation, setMessageStatus, setMessageOfficial, deleteMessage, resetData, updateMessage, upsertStation,
 } from '@chili/db';
 import { fmtTime } from '@chili/ui';
 import { useApp } from '../store';
 import { StationEditor } from './StationEditor';
+import { MessageEditor } from './MessageEditor';
 
 type AdminTab = 'overview' | 'stations' | 'messages';
 
@@ -17,6 +18,7 @@ export function AdminConsole() {
   const [tab, setTab] = useState<AdminTab>('overview');
   const [msgSearch, setMsgSearch] = useState('');
   const [editStation, setEditStation] = useState<Station | null | 'new'>(null);
+  const [editMessage, setEditMessage] = useState<Message | null>(null);
 
   const hiddenCount = allMsgs.filter((m) => m.status === 'hidden').length;
   const officialCount = allMsgs.filter((m) => m.official).length;
@@ -127,6 +129,7 @@ export function AdminConsole() {
                       </div>
                     )}
                     <div className="ai-actions">
+                      <button className="mini-btn edit" onClick={() => setEditMessage(m)}>编辑</button>
                       {m.status === 'pending' && (
                         <button className="mini-btn edit" onClick={async () => { await setMessageStatus(m.id, 'published'); await refreshAdmin(); showToast('已通过'); }}>
                           通过
@@ -149,6 +152,19 @@ export function AdminConsole() {
         )}
 
       </div></div>
+
+      {editMessage && (
+        <MessageEditor
+          initial={editMessage}
+          onClose={() => setEditMessage(null)}
+          onSave={async (patch) => {
+            await updateMessage(editMessage.id, patch);
+            await refreshAdmin();
+            setEditMessage(null);
+            showToast('留言已保存');
+          }}
+        />
+      )}
 
       {editStation && (
         <StationEditor
