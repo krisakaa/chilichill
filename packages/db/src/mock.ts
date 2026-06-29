@@ -1,4 +1,4 @@
-import type { Message, Station, User, MessageStatus } from '@chili/shared';
+import type { Message, Station, User, MessageStatus, ReactionType } from '@chili/shared';
 import { SEED_STATIONS, SEED_MESSAGES, SEED_USERS } from './seed';
 
 /**
@@ -10,7 +10,8 @@ import { SEED_STATIONS, SEED_MESSAGES, SEED_USERS } from './seed';
  * 非 Web 环境（React Native）下 localStorage 退化为内存存储。
  */
 
-type DB = { stations: Station[]; messages: Message[]; users: User[] };
+type Reaction = { messageId: string; visitorId: string; type: ReactionType; createdAt: number };
+type DB = { stations: Station[]; messages: Message[]; users: User[]; reactions: Reaction[] };
 
 const STORE_KEY = 'chilichill_diary_v1';
 
@@ -42,13 +43,14 @@ function load(): DB {
       }
     }
   }
-  mem = { stations: clone(SEED_STATIONS), messages: clone(SEED_MESSAGES), users: clone(SEED_USERS) };
+  mem = { stations: clone(SEED_STATIONS), messages: clone(SEED_MESSAGES), users: clone(SEED_USERS), reactions: [] };
   normalize(mem);
   persist();
   return mem;
 }
 
 function normalize(db: DB): void {
+  db.reactions ??= [];
   const seedById = new Map(SEED_STATIONS.map((station) => [station.id, station]));
   for (const station of db.stations) {
     const seed = seedById.get(station.id);
@@ -60,7 +62,27 @@ function normalize(db: DB): void {
     message.stationId ??= null;
     message.status ??= 'published';
     message.images ??= message.image ? [message.image] : [];
+    message.likesCount ??= 0;
+    message.heartsCount ??= 0;
+    message.viewerLiked ??= false;
+    message.viewerHearted ??= false;
   }
+}
+
+function withReactionState(messages: Message[], visitorId?: string): Message[] {
+  const db = load();
+  return messages.map((message) => {
+    const reactions = db.reactions.filter((reaction) => reaction.messageId === message.id);
+    const likesCount = reactions.filter((reaction) => reaction.type === 'like').length;
+    const heartsCount = reactions.filter((reaction) => reaction.type === 'heart').length;
+    return {
+      ...message,
+      likesCount,
+      heartsCount,
+      viewerLiked: Boolean(visitorId && reactions.some((reaction) => reaction.visitorId === visitorId && reaction.type === 'like')),
+      viewerHearted: Boolean(visitorId && reactions.some((reaction) => reaction.visitorId === visitorId && reaction.type === 'heart')),
+    };
+  });
 }
 
 function persist(): void {
@@ -97,27 +119,27 @@ export async function getStation(id: string): Promise<Station | null> {
   return clone(db.stations.find((s) => s.id === id) ?? null);
 }
 
-export async function listMessages(stationId: string, opts?: { includeHidden?: boolean }): Promise<Message[]> {
+export async function listMessages(stationId: string, opts?: { includeHidden?: boolean; visitorId?: string }): Promise<Message[]> {
   const db = load();
   let msgs = db.messages.filter((m) => m.stationId === stationId);
   if (!opts?.includeHidden) msgs = msgs.filter((m) => m.status === 'published');
   // 官方置顶，再按时间倒序
   msgs.sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || b.createdAt - a.createdAt);
-  return clone(msgs);
+  return clone(withReactionState(msgs, opts?.visitorId));
 }
 
-export async function listMessagesForStations(stationIds: string[], opts?: { includeHidden?: boolean }): Promise<Message[]> {
+export async function listMessagesForStations(stationIds: string[], opts?: { includeHidden?: boolean; visitorId?: string }): Promise<Message[]> {
   const db = load();
   const ids = new Set(stationIds);
   let msgs = db.messages.filter((m) => m.stationId !== null && ids.has(m.stationId));
   if (!opts?.includeHidden) msgs = msgs.filter((m) => m.status === 'published');
   msgs.sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || b.createdAt - a.createdAt);
-  return clone(msgs);
+  return clone(withReactionState(msgs, opts?.visitorId));
 }
 
 export async function listAllMessages(): Promise<Message[]> {
   const db = load();
-  return clone([...db.messages].sort((a, b) => b.createdAt - a.createdAt));
+  return clone(withReactionState([...db.messages].sort((a, b) => b.createdAt - a.createdAt)));
 }
 
 export async function listUsers(): Promise<User[]> {
@@ -151,12 +173,33 @@ export async function createMessage(input: {
     cityTag: input.cityTag,
     image: input.images?.[0] ?? input.image ?? '',
     images: input.images ?? (input.image ? [input.image] : []),
+    likesCount: 0,
+    heartsCount: 0,
+    viewerLiked: false,
+    viewerHearted: false,
     status: 'published',
     createdAt: Date.now(),
   };
   db.messages.unshift(msg);
   persist();
   return clone(msg);
+}
+
+export async function toggleMessageReaction(messageId: string, type: ReactionType, visitorId: string): Promise<Pick<Message, 'likesCount' | 'heartsCount' | 'viewerLiked' | 'viewerHearted'>> {
+  const db = load();
+  const message = db.messages.find((item) => item.id === messageId && item.status === 'published');
+  if (!message) throw new Error('Message is not available');
+  const existing = db.reactions.findIndex((reaction) => reaction.messageId === messageId && reaction.visitorId === visitorId && reaction.type === type);
+  if (existing >= 0) db.reactions.splice(existing, 1);
+  else db.reactions.push({ messageId, visitorId, type, createdAt: Date.now() });
+  persist();
+  const [next] = withReactionState([message], visitorId);
+  return {
+    likesCount: next.likesCount,
+    heartsCount: next.heartsCount,
+    viewerLiked: next.viewerLiked,
+    viewerHearted: next.viewerHearted,
+  };
 }
 
 export async function upsertStation(input: Partial<Station> & { name: string }): Promise<Station> {
@@ -232,11 +275,12 @@ export async function updateMessage(id: string, patch: Partial<Pick<Message, 'au
 export async function deleteMessage(id: string): Promise<void> {
   const db = load();
   db.messages = db.messages.filter((m) => m.id !== id);
+  db.reactions = db.reactions.filter((reaction) => reaction.messageId !== id);
   persist();
 }
 
 /** 重置为种子数据（开发/管理后台用） */
 export async function resetData(): Promise<void> {
-  mem = { stations: clone(SEED_STATIONS), messages: clone(SEED_MESSAGES), users: clone(SEED_USERS) };
+  mem = { stations: clone(SEED_STATIONS), messages: clone(SEED_MESSAGES), users: clone(SEED_USERS), reactions: [] };
   persist();
 }

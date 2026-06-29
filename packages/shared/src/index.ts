@@ -17,6 +17,7 @@ export type Palette =
 
 /** 留言状态 */
 export type MessageStatus = 'published' | 'pending' | 'hidden';
+export type ReactionType = 'like' | 'heart';
 
 /** 用户角色 */
 export type UserRole = 'fan' | 'admin';
@@ -55,6 +56,10 @@ export interface Message {
   cityTag: string;
   image: string; // 兼容旧单图 URL（可空）
   images?: string[]; // 留言图片 URL 列表
+  likesCount?: number;
+  heartsCount?: number;
+  viewerLiked?: boolean;
+  viewerHearted?: boolean;
   status: MessageStatus;
   createdAt: number;
 }

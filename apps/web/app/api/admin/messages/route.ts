@@ -1,4 +1,4 @@
-import { adminClient, hasSupabaseEnv, mapMessage, requireAdmin } from '../../../lib/server-data';
+import { adminClient, hasSupabaseEnv, isMissingReactionTable, mapMessage, requireAdmin, summarizeReactions, type MessageReactionRow } from '../../../lib/server-data';
 
 export async function GET() {
   const unauthorized = await requireAdmin();
@@ -10,5 +10,16 @@ export async function GET() {
     .select('*, message_images(url, sort_order)')
     .order('created_at', { ascending: false });
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json((data ?? []).map(mapMessage));
+  const messageIds = (data ?? []).map((message) => message.id);
+  const reactions = new Map<string, ReturnType<typeof summarizeReactions> extends Map<string, infer T> ? T : never>();
+  if (messageIds.length) {
+    const { data: reactionRows, error: reactionError } = await supabase
+      .from('message_reactions')
+      .select('message_id, visitor_id, type')
+      .in('message_id', messageIds);
+    if (!reactionError) {
+      for (const [id, summary] of summarizeReactions(reactionRows as MessageReactionRow[])) reactions.set(id, summary);
+    } else if (!isMissingReactionTable(reactionError)) return Response.json({ error: reactionError.message }, { status: 500 });
+  }
+  return Response.json((data ?? []).map((message) => mapMessage(message, reactions.get(message.id))));
 }

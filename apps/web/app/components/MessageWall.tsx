@@ -10,7 +10,7 @@ import { CityDrawer, useCityGroups } from './CityDrawer';
 export function MessageWall() {
   const {
     stations, curStation, curCityStations, curSwitchStations, messages, sortNew, toggleSort, backToMap, openCityWall,
-    user, setComposerOpen, setLoginOpen, setLightbox, showToast, screen,
+    user, setComposerOpen, setLoginOpen, setLightbox, showToast, screen, toggleReaction,
   } = useApp();
   const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
   const active = screen === 'wall';
@@ -106,6 +106,10 @@ export function MessageWall() {
                     <div className="mood-row">
                       <span className="mood">{m.mood}</span>
                       <span className="stars-rating" dangerouslySetInnerHTML={{ __html: renderStars(m.rating) }} />
+                      <div className="reaction-row">
+                        <button className={`reaction-btn ${m.viewerLiked ? 'on' : ''}`} onClick={() => toggleReaction(m.id, 'like')} aria-label="点赞">👍 {m.likesCount ?? 0}</button>
+                        <button className={`reaction-btn heart ${m.viewerHearted ? 'on' : ''}`} onClick={() => toggleReaction(m.id, 'heart')} aria-label="比心">❤️ {m.heartsCount ?? 0}</button>
+                      </div>
                     </div>
                   </div>
                 );

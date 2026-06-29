@@ -331,6 +331,12 @@ html, body { height: 100%; overflow: hidden; background: #000;
 .mood-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--dim); flex-wrap: wrap; }
 .mood { padding: 3px 7px; background: rgba(51,36,102,.82); box-shadow: 0 0 0 1px rgba(177,160,204,.75); }
 .stars-rating { color: var(--gold); letter-spacing: 1px; } .stars-rating .off { color: var(--bg2); }
+.reaction-row { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.reaction-btn { font-family: 'Press Start 2P'; font-size: 7px; padding: 6px 7px; border: none; cursor: pointer; color: var(--ink); background: var(--bg0); box-shadow: 0 0 0 1px var(--line), 2px 2px 0 var(--shadow); }
+.reaction-btn.heart { color: var(--hot); }
+.reaction-btn.on { color: var(--shadow); background: var(--gold); box-shadow: 0 0 0 1px var(--shadow), 2px 2px 0 var(--shadow); }
+.reaction-btn.heart.on { background: var(--hot); color: var(--shadow); }
+.reaction-btn:active { transform: translate(2px,2px); box-shadow: none; }
 .empty { padding: 52px 20px; text-align: center; color: var(--dim); font-size: 14px; line-height: 1.7; } .empty .npc { margin: 0 auto 14px; }
 
 @media (max-width: 520px) {
@@ -414,6 +420,7 @@ textarea { resize: none; height: 74px; }
 .admin-item .ai-actions { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
 .admin-pic-grid { display: grid; grid-template-columns: repeat(3, 64px); gap: 6px; margin: 8px 0; }
 .admin-pic-grid img { width: 64px; height: 64px; object-fit: cover; image-rendering: pixelated; cursor: pointer; background: var(--bg2); box-shadow: 0 0 0 1px rgba(244,231,211,.78); }
+.admin-reaction-meta { color: var(--gold); font-size: 11px; margin-top: 6px; }
 .mini-btn { font-family: 'Press Start 2P'; font-size: 7px; padding: 6px 7px; background: var(--bg0); color: var(--ink); border: none; cursor: pointer; box-shadow: 0 0 0 1px var(--line); }
 .mini-btn:active { transform: translate(2px,2px); box-shadow: none; }
 .mini-btn.edit { color: var(--cool); } .mini-btn.del { color: var(--hot); } .mini-btn.pin { color: var(--gold); } .mini-btn.hide { color: var(--warn); }

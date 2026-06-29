@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Message, MessageStatus, Palette, Station, StationStatus } from '@chili/shared';
+import type { Message, MessageStatus, Palette, ReactionType, Station, StationStatus } from '@chili/shared';
 
 const ADMIN_COOKIE = 'chilichill_admin';
 
@@ -45,6 +45,19 @@ type MessageRow = {
   message_images?: MessageImageRow[] | null;
 };
 
+type ReactionSummary = {
+  likesCount: number;
+  heartsCount: number;
+  viewerLiked: boolean;
+  viewerHearted: boolean;
+};
+
+export type MessageReactionRow = {
+  message_id: string;
+  visitor_id: string;
+  type: ReactionType;
+};
+
 export function hasSupabaseEnv() {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
@@ -83,8 +96,36 @@ function imageUrls(row: MessageRow) {
   return row.image ? [row.image] : [];
 }
 
-export function mapMessage(row: MessageRow): Message {
+export function emptyReactionSummary(): ReactionSummary {
+  return { likesCount: 0, heartsCount: 0, viewerLiked: false, viewerHearted: false };
+}
+
+export function summarizeReactions(rows: MessageReactionRow[] | null | undefined, visitorId?: string | null) {
+  const result = new Map<string, ReactionSummary>();
+  for (const row of rows ?? []) {
+    const summary = result.get(row.message_id) ?? emptyReactionSummary();
+    if (row.type === 'like') {
+      summary.likesCount += 1;
+      if (visitorId && row.visitor_id === visitorId) summary.viewerLiked = true;
+    }
+    if (row.type === 'heart') {
+      summary.heartsCount += 1;
+      if (visitorId && row.visitor_id === visitorId) summary.viewerHearted = true;
+    }
+    result.set(row.message_id, summary);
+  }
+  return result;
+}
+
+export function isMissingReactionTable(error: unknown) {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: string; message?: string };
+  return candidate.code === '42P01' || Boolean(candidate.message?.includes('message_reactions'));
+}
+
+export function mapMessage(row: MessageRow, reactions?: Partial<ReactionSummary>): Message {
   const images = imageUrls(row);
+  const summary = { ...emptyReactionSummary(), ...(reactions ?? {}) };
   return {
     id: row.id,
     stationId: row.station_id,
@@ -97,6 +138,10 @@ export function mapMessage(row: MessageRow): Message {
     cityTag: row.city_tag,
     image: images[0] ?? '',
     images,
+    likesCount: summary.likesCount,
+    heartsCount: summary.heartsCount,
+    viewerLiked: summary.viewerLiked,
+    viewerHearted: summary.viewerHearted,
     status: row.status,
     createdAt: new Date(row.created_at).getTime(),
   };

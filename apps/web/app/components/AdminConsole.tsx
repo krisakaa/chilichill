@@ -23,6 +23,9 @@ export function AdminConsole() {
 
   const hiddenCount = allMsgs.filter((m) => m.status === 'hidden').length;
   const officialCount = allMsgs.filter((m) => m.official).length;
+  const totalLikes = allMsgs.reduce((sum, m) => sum + (m.likesCount ?? 0), 0);
+  const totalHearts = allMsgs.reduce((sum, m) => sum + (m.heartsCount ?? 0), 0);
+  const totalReactions = totalLikes + totalHearts;
 
   return (
     <div className="screen active" id="admin-view">
@@ -52,6 +55,11 @@ export function AdminConsole() {
               <div className="stat"><b>{allMsgs.length}</b><span>留言总数</span></div>
               <div className="stat"><b>{officialCount}</b><span>官方留言</span></div>
               <div className="stat"><b>{hiddenCount}</b><span>已隐藏</span></div>
+            </div>
+            <div className="stat-grid">
+              <div className="stat"><b>{totalLikes}</b><span>👍</span></div>
+              <div className="stat"><b>{totalHearts}</b><span>❤️</span></div>
+              <div className="stat"><b>{totalReactions}</b><span>REACTIONS</span></div>
             </div>
             <AdminDiagnostics />
             <div className="admin-h">站点速览</div>
@@ -122,6 +130,7 @@ export function AdminConsole() {
                         <div className="ai-sub">[{s?.name ?? '未归属'}] {m.cityTag} · {fmtTime(m.createdAt)} · {m.mood} {'★'.repeat(m.rating)}</div>
                       </div>
                     </div>
+                    <div className="admin-reaction-meta">👍 {m.likesCount ?? 0} · ❤️ {m.heartsCount ?? 0}</div>
                     <div className="body" style={{ fontSize: 13, margin: '6px 0' }}>{m.body}</div>
                     {images.length > 0 && (
                       <div className="admin-pic-grid">

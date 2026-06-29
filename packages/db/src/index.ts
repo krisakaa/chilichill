@@ -1,4 +1,4 @@
-import type { Message, MessageStatus, Station } from '@chili/shared';
+import type { Message, MessageStatus, ReactionType, Station } from '@chili/shared';
 import * as mock from './mock';
 
 function canUseApi() {
@@ -25,15 +25,17 @@ export async function getStation(id: string) {
   return stations.find((station) => station.id === id) ?? null;
 }
 
-export async function listMessages(stationId: string, opts?: { includeHidden?: boolean }) {
+export async function listMessages(stationId: string, opts?: { includeHidden?: boolean; visitorId?: string }) {
   if (opts?.includeHidden) return mock.listMessages(stationId, opts);
-  return (await api<Awaited<ReturnType<typeof mock.listMessages>>>(`/api/messages?stationId=${encodeURIComponent(stationId)}`)) ?? mock.listMessages(stationId, opts);
+  const visitor = opts?.visitorId ? `&visitorId=${encodeURIComponent(opts.visitorId)}` : '';
+  return (await api<Awaited<ReturnType<typeof mock.listMessages>>>(`/api/messages?stationId=${encodeURIComponent(stationId)}${visitor}`)) ?? mock.listMessages(stationId, opts);
 }
 
-export async function listMessagesForStations(stationIds: string[], opts?: { includeHidden?: boolean }) {
+export async function listMessagesForStations(stationIds: string[], opts?: { includeHidden?: boolean; visitorId?: string }) {
   if (opts?.includeHidden) return mock.listMessagesForStations(stationIds, opts);
   const query = stationIds.map(encodeURIComponent).join(',');
-  return (await api<Awaited<ReturnType<typeof mock.listMessagesForStations>>>(`/api/messages?stationIds=${query}`)) ?? mock.listMessagesForStations(stationIds, opts);
+  const visitor = opts?.visitorId ? `&visitorId=${encodeURIComponent(opts.visitorId)}` : '';
+  return (await api<Awaited<ReturnType<typeof mock.listMessagesForStations>>>(`/api/messages?stationIds=${query}${visitor}`)) ?? mock.listMessagesForStations(stationIds, opts);
 }
 
 export async function listAllMessages() {
@@ -46,6 +48,13 @@ export async function listUsers() {
 
 export async function createMessage(input: Parameters<typeof mock.createMessage>[0]) {
   return (await api<Awaited<ReturnType<typeof mock.createMessage>>>('/api/messages', { method: 'POST', body: JSON.stringify(input) })) ?? mock.createMessage(input);
+}
+
+export async function toggleMessageReaction(messageId: string, type: ReactionType, visitorId: string) {
+  return (await api<Awaited<ReturnType<typeof mock.toggleMessageReaction>>>(`/api/messages/${encodeURIComponent(messageId)}/reactions`, {
+    method: 'POST',
+    body: JSON.stringify({ type, visitorId }),
+  })) ?? mock.toggleMessageReaction(messageId, type, visitorId);
 }
 
 export async function upsertStation(input: Partial<Station> & { name: string }) {

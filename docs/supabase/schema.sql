@@ -39,12 +39,28 @@ create table if not exists public.message_images (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.message_reactions (
+  id uuid primary key default gen_random_uuid(),
+  message_id uuid not null references public.messages(id) on delete cascade,
+  visitor_id text not null,
+  type text not null check (type in ('like', 'heart')),
+  created_at timestamptz not null default now(),
+  unique (message_id, visitor_id, type)
+);
+
 create index if not exists message_images_message_id_sort_idx
   on public.message_images (message_id, sort_order);
+
+create index if not exists message_reactions_message_id_type_idx
+  on public.message_reactions (message_id, type);
+
+create index if not exists message_reactions_visitor_id_idx
+  on public.message_reactions (visitor_id);
 
 alter table public.stations enable row level security;
 alter table public.messages enable row level security;
 alter table public.message_images enable row level security;
+alter table public.message_reactions enable row level security;
 
 drop policy if exists "Public station read" on public.stations;
 create policy "Public station read" on public.stations for select using (true);
@@ -61,6 +77,15 @@ create policy "Public published message image read" on public.message_images for
   exists (
     select 1 from public.messages
     where messages.id = message_images.message_id
+      and messages.status = 'published'
+  )
+);
+
+drop policy if exists "Public published message reaction read" on public.message_reactions;
+create policy "Public published message reaction read" on public.message_reactions for select using (
+  exists (
+    select 1 from public.messages
+    where messages.id = message_reactions.message_id
       and messages.status = 'published'
   )
 );

@@ -1,4 +1,4 @@
-import { adminClient, hasSupabaseEnv, mapMessage } from '../../lib/server-data';
+import { adminClient, hasSupabaseEnv, isMissingReactionTable, mapMessage, summarizeReactions, type MessageReactionRow } from '../../lib/server-data';
 
 const MAX_IMAGES = 6;
 
@@ -15,6 +15,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const stationIds = url.searchParams.get('stationIds')?.split(',').filter(Boolean) ?? [];
   const stationId = url.searchParams.get('stationId');
+  const visitorId = url.searchParams.get('visitorId');
   const supabase = adminClient();
   let query = supabase
     .from('messages')
@@ -26,7 +27,17 @@ export async function GET(request: Request) {
   else if (stationId) query = query.eq('station_id', stationId);
   const { data, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json((data ?? []).map(mapMessage));
+  const messageIds = (data ?? []).map((message) => message.id);
+  let reactions = new Map<string, ReturnType<typeof summarizeReactions> extends Map<string, infer T> ? T : never>();
+  if (messageIds.length) {
+    const { data: reactionRows, error: reactionError } = await supabase
+      .from('message_reactions')
+      .select('message_id, visitor_id, type')
+      .in('message_id', messageIds);
+    if (!reactionError) reactions = summarizeReactions(reactionRows as MessageReactionRow[], visitorId);
+    else if (!isMissingReactionTable(reactionError)) return Response.json({ error: reactionError.message }, { status: 500 });
+  }
+  return Response.json((data ?? []).map((message) => mapMessage(message, reactions.get(message.id))));
 }
 
 export async function POST(request: Request) {
