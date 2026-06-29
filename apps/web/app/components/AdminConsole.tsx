@@ -123,6 +123,7 @@ export function AdminConsole() {
                     <div className="ai-top">
                       <div>
                         <div className="ai-title">{m.author}
+                          {m.parentId && <span className="admin-tag pending">REPLY</span>}
                           {m.official && <span className="admin-tag official">官方</span>}
                           {m.status === 'pending' && <span className="admin-tag pending">待审核</span>}
                           {m.status === 'hidden' && <span className="admin-tag hidden">已隐藏</span>}

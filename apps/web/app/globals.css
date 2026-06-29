@@ -40,9 +40,9 @@ html, body { height: 100%; overflow: hidden; background: #000;
   #map-view { flex: 0 0 46%; border-right: 3px solid var(--shadow); }
   #wall-view { flex: 1; }
   .back-btn { display: none; }
+  .wordmark { font-size: 11px; }
   .city-menu-btn { display: none; }
   .city-drawer-layer { display: none; }
-  .wordmark { font-size: 11px; }
 }
 
 /* topbar */
@@ -51,14 +51,14 @@ html, body { height: 100%; overflow: hidden; background: #000;
 .wordmark { font-family: 'Press Start 2P'; font-size: 10px; color: var(--gold);
   text-shadow: 2px 2px 0 rgba(255,77,109,.8), 3px 3px 0 var(--shadow); text-align: center; flex: 1; white-space: nowrap; }
 .wordmark small { display: block; font-size: 6px; color: var(--cool); text-shadow: 1px 1px 0 var(--shadow); margin-top: 4px; letter-spacing: 1px; }
-.ico-btn { font-family: 'Press Start 2P'; font-size: 8px; color: var(--ink); background: var(--bg0);
+.ico-btn { font-family: 'Press Start 2P', 'ZCOOL KuaiLe', monospace; font-size: 8px; color: var(--ink); background: var(--bg0);
   padding: 8px 9px; border: none; cursor: pointer; box-shadow: 0 0 0 1px var(--ink), 2px 2px 0 var(--shadow);
   transition: transform .05s; white-space: nowrap; }
 .ico-btn:active { transform: translate(2px,2px); box-shadow: 0 0 0 1px var(--ink), 0 0 0 var(--shadow); }
 .ico-btn.on { background: var(--hot); color: var(--shadow); }
 .ico-btn.mini { padding: 7px; font-size: 7px; }
 
-.fab { position: absolute; right: 14px; bottom: 18px; z-index: 40; font-family: 'Press Start 2P'; font-size: 9px;
+.fab { position: absolute; right: 14px; bottom: 18px; z-index: 40; font-family: 'Press Start 2P', 'ZCOOL KuaiLe', monospace; font-size: 9px;
   color: var(--shadow); background: var(--gold); padding: 13px 14px; border: none; cursor: pointer;
   box-shadow: 0 0 0 2px var(--shadow), 3px 3px 0 var(--shadow); }
 .fab:active { transform: translate(3px,3px); box-shadow: 0 0 0 2px var(--shadow), 0 0 0 var(--shadow); }
@@ -337,6 +337,15 @@ html, body { height: 100%; overflow: hidden; background: #000;
 .reaction-btn.on { color: var(--shadow); background: var(--gold); box-shadow: 0 0 0 1px var(--shadow), 2px 2px 0 var(--shadow); }
 .reaction-btn.heart.on { background: var(--hot); color: var(--shadow); }
 .reaction-btn:active { transform: translate(2px,2px); box-shadow: none; }
+.reply-action { color: var(--cool); }
+.reply-list { margin-top: 10px; padding-left: 12px; display: grid; gap: 9px; border-left: 2px solid rgba(55,215,226,.45); }
+.reply-card { background: rgba(22,15,45,.78); padding: 10px; box-shadow: 0 0 0 1px rgba(177,160,204,.58), 2px 2px 0 var(--shadow); position: relative; }
+.reply-card .avatar { width: 28px; height: 28px; font-size: 9px; }
+.reply-card .who b { font-size: 13px; }
+.reply-card .body { font-size: 14px; }
+.reply-card .pic { max-height: 160px; }
+.source-tag { display: inline-block; margin: 0 0 8px; padding: 4px 6px; font-family: 'Press Start 2P'; font-size: 6px; color: var(--cool); background: rgba(10,5,24,.5); box-shadow: 0 0 0 1px rgba(55,215,226,.5); line-height: 1.6; }
+.reply-context { margin: -4px 0 12px; padding: 9px 10px; font-size: 13px; line-height: 1.55; color: var(--dim); background: rgba(10,5,24,.42); box-shadow: 0 0 0 1px rgba(177,160,204,.5); max-height: 72px; overflow: hidden; }
 .empty { padding: 52px 20px; text-align: center; color: var(--dim); font-size: 14px; line-height: 1.7; } .empty .npc { margin: 0 auto 14px; }
 
 @media (max-width: 520px) {

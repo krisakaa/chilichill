@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PALETTES, type Station, type StationStatus } from '@chili/shared';
 import { useApp } from '../store';
-import { CityDrawer, useCityGroups } from './CityDrawer';
+import { CityDrawer, useCityGroups, useDesktopLayout } from './CityDrawer';
 
 const BOARD_W = 72;
 const BOARD_H = 68;
@@ -159,19 +159,11 @@ function markerPosition(station: Station, provinceCenters: Record<string, Projec
 }
 
 export function TourMap() {
-  const { stations, curStation, openWall, openCityWall, openAdmin, user, logout, setLoginOpen, screen } = useApp();
+  const { stations, curStation, openWall, openCityWall, openAllWall, openAdmin, user, logout, setLoginOpen, screen } = useApp();
   const [china, setChina] = useState<ChinaGeoJson | null>(null);
   const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
-  const [desktopMap, setDesktopMap] = useState(false);
+  const desktopMap = useDesktopLayout();
   const active = screen === 'map';
-
-  useEffect(() => {
-    const query = window.matchMedia('(min-width: 980px)');
-    const update = () => setDesktopMap(query.matches);
-    update();
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -218,25 +210,28 @@ export function TourMap() {
     <div className={`screen ${active ? 'active' : ''}`} id="map-view">
       <div className="topbar">
         <button className="ico-btn mini" onClick={openAdmin}>?</button>
-        <div className="wordmark">ChiliChill<small>TOUR DIARY</small></div>
+        <div className="wordmark">ChiliChill<small>巡演日记</small></div>
         <div className="map-actions">
-          <button className="ico-btn city-menu-btn" onClick={() => setCityDrawerOpen(true)} disabled={cityGroups.length === 0}>CITY</button>
+          <button className="ico-btn city-menu-btn" onClick={() => setCityDrawerOpen(true)} disabled={cityGroups.length === 0}>城市</button>
+          <button className="ico-btn all-menu-btn" onClick={() => { setCityDrawerOpen(false); openAllWall(); }}>全站</button>
           <button className="ico-btn on" onClick={() => (user ? logout() : setLoginOpen(true))}>
-            {user ? (user.role === 'admin' ? 'ADMIN' : 'LOGOUT') : 'LOGIN'}
+            {user ? (user.role === 'admin' ? '管理' : '退出') : '登录'}
           </button>
         </div>
       </div>
 
-      <CityDrawer
-        open={cityDrawerOpen}
-        cityGroups={cityGroups}
-        currentStation={curStation}
-        onClose={() => setCityDrawerOpen(false)}
-        onSelect={(station, group) => {
-          openCityWall(station, group);
-          setCityDrawerOpen(false);
-        }}
-      />
+      {!desktopMap && (
+        <CityDrawer
+          open={cityDrawerOpen}
+          cityGroups={cityGroups}
+          currentStation={curStation}
+          onClose={() => setCityDrawerOpen(false)}
+          onSelect={(station, group) => {
+            openCityWall(station, group);
+            setCityDrawerOpen(false);
+          }}
+        />
+      )}
 
       <div className="stage">
         <div className="map-frame abstract-map" role="img" aria-label={TEXT.aria}>

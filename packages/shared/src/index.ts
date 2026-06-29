@@ -46,6 +46,7 @@ export interface Station {
 export interface Message {
   id: string;
   stationId: string | null;
+  parentId?: string | null;
   author: string;
   authorId?: string;
   avatar: number; // 头像样式索引；0 = 官方小人专属
@@ -60,6 +61,7 @@ export interface Message {
   heartsCount?: number;
   viewerLiked?: boolean;
   viewerHearted?: boolean;
+  replies?: Message[];
   status: MessageStatus;
   createdAt: number;
 }

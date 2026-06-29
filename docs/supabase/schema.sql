@@ -20,6 +20,7 @@ create table if not exists public.stations (
 create table if not exists public.messages (
   id uuid primary key default gen_random_uuid(),
   station_id uuid references public.stations(id) on delete set null,
+  parent_id uuid references public.messages(id) on delete cascade,
   author text not null,
   avatar integer not null default 1,
   official boolean not null default false,
@@ -48,8 +49,14 @@ create table if not exists public.message_reactions (
   unique (message_id, visitor_id, type)
 );
 
+alter table public.messages
+  add column if not exists parent_id uuid references public.messages(id) on delete cascade;
+
 create index if not exists message_images_message_id_sort_idx
   on public.message_images (message_id, sort_order);
+
+create index if not exists messages_parent_id_idx
+  on public.messages (parent_id);
 
 create index if not exists message_reactions_message_id_type_idx
   on public.message_reactions (message_id, type);

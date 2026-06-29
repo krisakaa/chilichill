@@ -61,7 +61,7 @@ async function uploadImage(file: File): Promise<string> {
 }
 
 export function Composer() {
-  const { composerOpen, setComposerOpen, stations, user, submitMessage, showToast } = useApp();
+  const { composerOpen, setComposerOpen, stations, user, submitMessage, showToast, replyTarget, clearReplyTarget, wallMode } = useApp();
   const [body, setBody] = useState('');
   const [mood, setMood] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
@@ -82,6 +82,7 @@ export function Composer() {
 
   const reset = () => {
     setBody(''); setMood(null); setRating(0); setCity(null); clearImages(); setUploading(false);
+    clearReplyTarget();
     setComposerOpen(false);
   };
 
@@ -119,6 +120,7 @@ export function Composer() {
     if (uploading) return;
     if (!body.trim()) { showToast('写点什么吧'); return; }
     if (!mood) { showToast('选个心情'); return; }
+    if (wallMode === 'all' && !replyTarget && !city) { showToast('请先选择城市'); return; }
     try {
       setUploading(true);
       const uploadedImages = images.length ? await Promise.all(images.map((image) => uploadImage(image.file))) : [];
@@ -127,13 +129,14 @@ export function Composer() {
           body: body.trim(),
           mood,
           rating: rating || 3,
-          cityTag: city ?? '',
+          cityTag: city ?? replyTarget?.cityTag ?? '',
           images: uploadedImages,
+          parentId: replyTarget?.id ?? null,
         });
-      } catch {
-        throw new Error('留言保存失败，请稍后重试');
+      } catch (error) {
+        throw error instanceof Error ? error : new Error('留言保存失败，请稍后重试');
       }
-      setBody(''); setMood(null); setRating(0); clearImages();
+      setBody(''); setMood(null); setRating(0); setCity(null); clearImages(); clearReplyTarget();
       showToast('已发布');
     } catch (error) {
       showToast(error instanceof Error ? error.message : '图片上传失败');
@@ -145,7 +148,8 @@ export function Composer() {
   return (
     <div className="modal active" id="composer">
       <div className="sheet">
-        <h3>写下你的日记</h3>
+        <h3>{replyTarget ? `回复 ${replyTarget.author}` : '写下你的日记'}</h3>
+        {replyTarget && <div className="reply-context">{replyTarget.body}</div>}
         <div className="field">
           <label>留言</label>
           <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="今天的现场太燃了..." />

@@ -38,6 +38,11 @@ export async function listMessagesForStations(stationIds: string[], opts?: { inc
   return (await api<Awaited<ReturnType<typeof mock.listMessagesForStations>>>(`/api/messages?stationIds=${query}${visitor}`)) ?? mock.listMessagesForStations(stationIds, opts);
 }
 
+export async function listAllPublicMessages(opts?: { visitorId?: string }) {
+  const visitor = opts?.visitorId ? `&visitorId=${encodeURIComponent(opts.visitorId)}` : '';
+  return (await api<Awaited<ReturnType<typeof mock.listAllPublicMessages>>>(`/api/messages?all=1${visitor}`)) ?? mock.listAllPublicMessages(opts);
+}
+
 export async function listAllMessages() {
   return (await api<Awaited<ReturnType<typeof mock.listAllMessages>>>('/api/admin/messages')) ?? mock.listAllMessages();
 }

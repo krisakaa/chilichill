@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { STATUS_LABEL, type Station } from '@chili/shared';
 
 export function cityGroupKey(station: Station) {
@@ -18,6 +18,20 @@ export function useCityGroups(stations: Station[]) {
   }, [stations]);
 }
 
+export function useDesktopLayout() {
+  const [desktop, setDesktop] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 980px)');
+    const update = () => setDesktop(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  return desktop;
+}
+
 interface CityDrawerProps {
   open: boolean;
   cityGroups: Station[][];
@@ -31,11 +45,11 @@ export function CityDrawer({ open, cityGroups, currentStation, onClose, onSelect
 
   return (
     <div className={`city-drawer-layer ${open ? 'open' : ''}`} aria-hidden={!open}>
-      <button className="city-drawer-shade" type="button" aria-label="Close city menu" onClick={onClose} />
-      <aside className="city-drawer" aria-label="City selection">
+      <button className="city-drawer-shade" type="button" aria-label="关闭城市菜单" onClick={onClose} />
+      <aside className="city-drawer" aria-label="城市选择">
         <div className="city-drawer-head">
-          <span>CITIES</span>
-          <button className="ico-btn mini" type="button" onClick={onClose}>X</button>
+          <span>城市</span>
+          <button className="ico-btn mini" type="button" aria-label="关闭" onClick={onClose}>X</button>
         </div>
         <div className="city-drawer-list">
           {cityGroups.map((group) => {
@@ -49,7 +63,7 @@ export function CityDrawer({ open, cityGroups, currentStation, onClose, onSelect
                 onClick={() => onSelect(station, group)}
               >
                 <span className="city-drawer-city">{station.cityName}</span>
-                <span className="city-drawer-meta">{group.length > 1 ? `${group.length} STOPS` : station.date}</span>
+                <span className="city-drawer-meta">{group.length > 1 ? `${group.length} 场` : station.date}</span>
                 <span className={`city-drawer-status ${station.status}`}>{STATUS_LABEL[station.status]}</span>
               </button>
             );

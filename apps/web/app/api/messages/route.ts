@@ -1,4 +1,4 @@
-import { adminClient, hasSupabaseEnv, isMissingReactionTable, mapMessage, summarizeReactions, type MessageReactionRow } from '../../lib/server-data';
+import { adminClient, hasSupabaseEnv, isMissingReactionTable, mapMessage, nestMessages, summarizeReactions, type MessageReactionRow } from '../../lib/server-data';
 
 const MAX_IMAGES = 6;
 
@@ -15,6 +15,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const stationIds = url.searchParams.get('stationIds')?.split(',').filter(Boolean) ?? [];
   const stationId = url.searchParams.get('stationId');
+  const all = url.searchParams.get('all') === '1';
   const visitorId = url.searchParams.get('visitorId');
   const supabase = adminClient();
   let query = supabase
@@ -23,8 +24,8 @@ export async function GET(request: Request) {
     .eq('status', 'published')
     .order('official', { ascending: false })
     .order('created_at', { ascending: false });
-  if (stationIds.length) query = query.in('station_id', stationIds);
-  else if (stationId) query = query.eq('station_id', stationId);
+  if (!all && stationIds.length) query = query.in('station_id', stationIds);
+  else if (!all && stationId) query = query.eq('station_id', stationId);
   const { data, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });
   const messageIds = (data ?? []).map((message) => message.id);
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
     if (!reactionError) reactions = summarizeReactions(reactionRows as MessageReactionRow[], visitorId);
     else if (!isMissingReactionTable(reactionError)) return Response.json({ error: reactionError.message }, { status: 500 });
   }
-  return Response.json((data ?? []).map((message) => mapMessage(message, reactions.get(message.id))));
+  return Response.json(nestMessages((data ?? []).map((message) => mapMessage(message, reactions.get(message.id)))));
 }
 
 export async function POST(request: Request) {
@@ -45,8 +46,24 @@ export async function POST(request: Request) {
   const input = await request.json();
   const images = normalizeImages(input.images);
   const supabase = adminClient();
+  let parentId: string | null = null;
+  let stationId = input.stationId;
+  if (typeof input.parentId === 'string' && input.parentId) {
+    const { data: parent, error: parentError } = await supabase
+      .from('messages')
+      .select('id, station_id, status, parent_id')
+      .eq('id', input.parentId)
+      .single();
+    if (parentError || !parent || parent.status !== 'published' || parent.parent_id) {
+      return Response.json({ error: 'Parent message is not available' }, { status: 400 });
+    }
+    parentId = parent.id;
+    stationId = parent.station_id;
+  }
+  if (!stationId) return Response.json({ error: 'Station is required' }, { status: 400 });
   const { data, error } = await supabase.from('messages').insert({
-    station_id: input.stationId,
+    station_id: stationId,
+    parent_id: parentId,
     author: input.author,
     avatar: input.avatar,
     official: false,

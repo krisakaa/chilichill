@@ -60,6 +60,7 @@ function normalize(db: DB): void {
   }
   for (const message of db.messages) {
     message.stationId ??= null;
+    message.parentId ??= null;
     message.status ??= 'published';
     message.images ??= message.image ? [message.image] : [];
     message.likesCount ??= 0;
@@ -67,6 +68,24 @@ function normalize(db: DB): void {
     message.viewerLiked ??= false;
     message.viewerHearted ??= false;
   }
+}
+
+function nestMessages(messages: Message[]): Message[] {
+  const roots: Message[] = [];
+  const byParent = new Map<string, Message[]>();
+  for (const message of messages) {
+    if (message.parentId) {
+      const replies = byParent.get(message.parentId) ?? [];
+      replies.push({ ...message, replies: [] });
+      byParent.set(message.parentId, replies);
+    } else {
+      roots.push({ ...message, replies: [] });
+    }
+  }
+  for (const root of roots) {
+    root.replies = (byParent.get(root.id) ?? []).sort((a, b) => a.createdAt - b.createdAt);
+  }
+  return roots;
 }
 
 function withReactionState(messages: Message[], visitorId?: string): Message[] {
@@ -125,7 +144,7 @@ export async function listMessages(stationId: string, opts?: { includeHidden?: b
   if (!opts?.includeHidden) msgs = msgs.filter((m) => m.status === 'published');
   // 官方置顶，再按时间倒序
   msgs.sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || b.createdAt - a.createdAt);
-  return clone(withReactionState(msgs, opts?.visitorId));
+  return clone(nestMessages(withReactionState(msgs, opts?.visitorId)));
 }
 
 export async function listMessagesForStations(stationIds: string[], opts?: { includeHidden?: boolean; visitorId?: string }): Promise<Message[]> {
@@ -134,9 +153,17 @@ export async function listMessagesForStations(stationIds: string[], opts?: { inc
   let msgs = db.messages.filter((m) => m.stationId !== null && ids.has(m.stationId));
   if (!opts?.includeHidden) msgs = msgs.filter((m) => m.status === 'published');
   msgs.sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || b.createdAt - a.createdAt);
-  return clone(withReactionState(msgs, opts?.visitorId));
+  return clone(nestMessages(withReactionState(msgs, opts?.visitorId)));
 }
 
+
+export async function listAllPublicMessages(opts?: { visitorId?: string }): Promise<Message[]> {
+  const db = load();
+  const msgs = db.messages
+    .filter((m) => m.status === 'published')
+    .sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || b.createdAt - a.createdAt);
+  return clone(nestMessages(withReactionState(msgs, opts?.visitorId)));
+}
 export async function listAllMessages(): Promise<Message[]> {
   const db = load();
   return clone(withReactionState([...db.messages].sort((a, b) => b.createdAt - a.createdAt)));
@@ -151,6 +178,7 @@ export async function listUsers(): Promise<User[]> {
 
 export async function createMessage(input: {
   stationId: string;
+  parentId?: string | null;
   author: string;
   avatar: number;
   body: string;
@@ -161,9 +189,18 @@ export async function createMessage(input: {
   images?: string[];
 }): Promise<Message> {
   const db = load();
+  let parentId: string | null = null;
+  let stationId: string | null = input.stationId;
+  if (input.parentId) {
+    const parent = db.messages.find((message) => message.id === input.parentId && message.status === 'published' && !message.parentId);
+    if (!parent) throw new Error('Parent message is not available');
+    parentId = parent.id;
+    stationId = parent.stationId;
+  }
   const msg: Message = {
     id: uid('m'),
-    stationId: input.stationId,
+    stationId,
+    parentId,
     author: input.author,
     avatar: input.avatar,
     official: false,
@@ -274,8 +311,12 @@ export async function updateMessage(id: string, patch: Partial<Pick<Message, 'au
 
 export async function deleteMessage(id: string): Promise<void> {
   const db = load();
-  db.messages = db.messages.filter((m) => m.id !== id);
-  db.reactions = db.reactions.filter((reaction) => reaction.messageId !== id);
+  const ids = new Set<string>([id]);
+  for (const message of db.messages) {
+    if (message.parentId === id) ids.add(message.id);
+  }
+  db.messages = db.messages.filter((m) => !ids.has(m.id));
+  db.reactions = db.reactions.filter((reaction) => !ids.has(reaction.messageId));
   persist();
 }
 

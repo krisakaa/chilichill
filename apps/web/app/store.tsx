@@ -2,9 +2,10 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Message, ReactionType, Station, User } from '@chili/shared';
-import { listStations, listMessages, listMessagesForStations, createMessage, listAllMessages, listUsers, toggleMessageReaction } from '@chili/db';
+import { listStations, listMessages, listMessagesForStations, listAllPublicMessages, createMessage, listAllMessages, listUsers, toggleMessageReaction } from '@chili/db';
 
 export type Screen = 'map' | 'wall' | 'admin';
+export type WallMode = 'city' | 'all';
 
 export interface SubmitMessageInput {
   body: string;
@@ -13,6 +14,7 @@ export interface SubmitMessageInput {
   cityTag: string;
   image?: string;
   images?: string[];
+  parentId?: string | null;
 }
 
 interface AppContextValue {
@@ -29,6 +31,9 @@ interface AppContextValue {
   openWall: (s: Station) => void;
   openCityWall: (s: Station, cityStations: Station[], switchStations?: Station[]) => void;
   backToMap: () => void;
+  wallMode: WallMode;
+  openAllWall: () => Promise<void>;
+  clearReplyTarget: () => void;
 
   messages: Message[];
   refreshMessages: () => Promise<void>;
@@ -43,6 +48,8 @@ interface AppContextValue {
   toast: string;
   showToast: (t: string) => void;
   submitMessage: (input: SubmitMessageInput) => Promise<void>;
+  replyTarget: Message | null;
+  openReplyComposer: (message: Message) => void;
   openAdmin: () => Promise<void>;
 
   // modals
@@ -71,6 +78,23 @@ function getVisitorId() {
   return next;
 }
 
+function findMessageById(messages: Message[], id: string): Message | null {
+  for (const message of messages) {
+    if (message.id === id) return message;
+    const nested = message.replies ? findMessageById(message.replies, id) : null;
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function updateMessageById(messages: Message[], id: string, update: (message: Message) => Message): Message[] {
+  return messages.map((message) => {
+    if (message.id === id) return update(message);
+    if (!message.replies?.length) return message;
+    return { ...message, replies: updateMessageById(message.replies, id, update) };
+  });
+}
+
 export function useApp(): AppContextValue {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used within AppProvider');
@@ -85,11 +109,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [curCityStations, setCurCityStations] = useState<Station[]>([]);
   const [curSwitchStations, setCurSwitchStations] = useState<Station[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [wallMode, setWallMode] = useState<WallMode>('city');
   const [user, setUser] = useState<User | null>(null);
   const [sortNew, setSortNew] = useState(true);
   const [toast, setToast] = useState('');
   const [loginOpen, setLoginOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [allMsgs, setAllMsgs] = useState<Message[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -113,11 +139,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshMessages = useCallback(async () => {
+    const opts = visitorId ? { visitorId } : undefined;
+    if (wallMode === 'all') { setMessages(await listAllPublicMessages(opts)); return; }
     if (!curStation) { setMessages([]); return; }
     const stationIds = curCityStations.length ? curCityStations.map((station) => station.id) : [curStation.id];
-    const opts = visitorId ? { visitorId } : undefined;
     setMessages(stationIds.length > 1 ? await listMessagesForStations(stationIds, opts) : await listMessages(curStation.id, opts));
-  }, [curStation, curCityStations, visitorId]);
+  }, [curStation, curCityStations, visitorId, wallMode]);
 
   // boot
   useEffect(() => {
@@ -126,13 +153,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t);
   }, []);
 
-  // boot
+  // load stations
   useEffect(() => { refreshStations(); }, [refreshStations]);
 
-  // boot
-  useEffect(() => { if (curStation) refreshMessages(); }, [curStation, refreshMessages]);
+  // load messages when entering a wall
+  useEffect(() => { if (curStation || wallMode === 'all') refreshMessages(); }, [curStation, wallMode, refreshMessages]);
 
   const openWall = useCallback((s: Station) => {
+    setWallMode('city');
     setCurStation(s);
     setCurCityStations([s]);
     setCurSwitchStations([]);
@@ -140,6 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openCityWall = useCallback((s: Station, cityStations: Station[], switchStations?: Station[]) => {
+    setWallMode('city');
     const uniqueCities = new Map(cityStations.map((station) => [station.cityName, station]));
     setCurStation(s);
     setCurCityStations(uniqueCities.size > 1 ? [s] : cityStations);
@@ -148,6 +177,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const backToMap = useCallback(() => setScreen('map'), []);
+
+  const openAllWall = useCallback(async () => {
+    setWallMode('all');
+    setCurStation(null);
+    setCurCityStations([]);
+    setCurSwitchStations([]);
+    setScreen('wall');
+    const opts = visitorId ? { visitorId } : undefined;
+    setMessages(await listAllPublicMessages(opts));
+  }, [visitorId]);
 
   const login = useCallback(async (name: string, password?: string) => {
     const admin = name.toLowerCase() === 'admin';
@@ -158,7 +197,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ password }),
       });
       if (!response.ok && response.status !== 503) {
-        showToast('Admin password is incorrect.');
+        showToast('管理员密码不正确');
         return;
       }
     }
@@ -169,19 +208,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       avatar: admin ? 0 : Math.floor(Math.random() * 5) + 1,
     });
     setLoginOpen(false);
-    showToast('Welcome, ' + name + (admin ? ' / Admin' : ''));
+    showToast('欢迎，' + name + (admin ? ' / 管理员' : ''));
   }, [showToast]);
 
   const logout = useCallback(async () => {
     if (user?.role === 'admin') await fetch('/api/admin/auth', { method: 'DELETE' }).catch(() => undefined);
     setUser(null);
-    showToast('Logged out.');
+    showToast('已退出登录');
   }, [user, showToast]);
 
   const submitMessage = useCallback(async (input: SubmitMessageInput) => {
-    if (!user || !curStation) return;
+    if (!user) throw new Error('请先登录');
+    const pickedStation = stations.find((station) => station.name === input.cityTag || station.cityName === input.cityTag);
+    const stationId = curStation?.id ?? replyTarget?.stationId ?? pickedStation?.id ?? '';
+    if (!stationId && !input.parentId) throw new Error('请先选择城市');
     await createMessage({
-      stationId: curStation.id,
+      stationId,
       author: user.username,
       avatar: user.avatar,
       body: input.body,
@@ -190,12 +232,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cityTag: input.cityTag,
       image: input.images?.[0] ?? input.image ?? '',
       images: input.images ?? (input.image ? [input.image] : []),
+      parentId: input.parentId ?? null,
     });
     await refreshMessages();
     await refreshStations();
     setComposerOpen(false);
-    showToast('Published.');
-  }, [user, curStation, refreshMessages, refreshStations, showToast]);
+    setReplyTarget(null);
+    showToast('已发布');
+  }, [user, curStation, replyTarget, stations, refreshMessages, refreshStations, showToast]);
 
   const toggleReaction = useCallback(async (messageId: string, type: ReactionType) => {
     const pendingKey = messageId + ':' + type;
@@ -203,26 +247,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reactionPending.current.add(pendingKey);
     const activeVisitorId = visitorId || getVisitorId();
     if (!visitorId) setVisitorId(activeVisitorId);
-    const target = messages.find((message) => message.id === messageId);
+    const target = findMessageById(messages, messageId);
     if (!target) { reactionPending.current.delete(pendingKey); return; }
     const likedKey = type === 'like' ? 'viewerLiked' : 'viewerHearted';
     const countKey = type === 'like' ? 'likesCount' : 'heartsCount';
     const wasOn = Boolean(target[likedKey]);
-    setMessages((current) => current.map((message) => message.id === messageId ? {
+    setMessages((current) => updateMessageById(current, messageId, (message) => ({
       ...message,
       [likedKey]: !wasOn,
       [countKey]: Math.max(0, (message[countKey] ?? 0) + (wasOn ? -1 : 1)),
-    } : message));
+    })));
     try {
       const next = await toggleMessageReaction(messageId, type, activeVisitorId);
-      setMessages((current) => current.map((message) => message.id === messageId ? { ...message, ...next } : message));
+      setMessages((current) => updateMessageById(current, messageId, (message) => ({ ...message, ...next })));
     } catch {
-      setMessages((current) => current.map((message) => message.id === messageId ? target : message));
-      showToast('Reaction failed. Try again.');
+      setMessages((current) => updateMessageById(current, messageId, () => target));
+      showToast('互动失败，请重试');
     } finally {
       reactionPending.current.delete(pendingKey);
     }
   }, [messages, showToast, visitorId]);
+
+  const openReplyComposer = useCallback((message: Message) => {
+    setReplyTarget(message);
+    setComposerOpen(true);
+  }, []);
+
+  const clearReplyTarget = useCallback(() => setReplyTarget(null), []);
 
   const refreshAdmin = useCallback(async () => {
     setAllMsgs(await listAllMessages());
@@ -231,7 +282,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const openAdmin = useCallback(async () => {
     if (!user || user.role !== 'admin') {
-      showToast('Admin login required.');
+      showToast('请先以管理员身份登录');
       setLoginOpen(true);
       return;
     }
@@ -244,10 +295,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppContextValue = {
     booted, screen, setScreen,
     stations, refreshStations,
-    curStation, curCityStations, curSwitchStations, openWall, openCityWall, backToMap,
+    curStation, curCityStations, curSwitchStations, openWall, openCityWall, backToMap, wallMode, openAllWall, clearReplyTarget,
     messages, refreshMessages, toggleReaction, sortNew, toggleSort,
     user, login, logout,
-    toast, showToast, submitMessage, openAdmin,
+    toast, showToast, submitMessage, replyTarget, openReplyComposer, openAdmin,
     loginOpen, setLoginOpen, composerOpen, setComposerOpen,
     lightbox, setLightbox,
     allMsgs, users, refreshAdmin,

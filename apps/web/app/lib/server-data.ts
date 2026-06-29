@@ -32,6 +32,7 @@ type MessageImageRow = {
 type MessageRow = {
   id: string;
   station_id: string | null;
+  parent_id?: string | null;
   author: string;
   avatar: number;
   official: boolean;
@@ -129,6 +130,7 @@ export function mapMessage(row: MessageRow, reactions?: Partial<ReactionSummary>
   return {
     id: row.id,
     stationId: row.station_id,
+    parentId: row.parent_id ?? null,
     author: row.author,
     avatar: row.avatar,
     official: row.official,
@@ -147,6 +149,24 @@ export function mapMessage(row: MessageRow, reactions?: Partial<ReactionSummary>
   };
 }
 
+export function nestMessages(messages: Message[]): Message[] {
+  const byParent = new Map<string, Message[]>();
+  const roots: Message[] = [];
+  for (const message of messages) {
+    const parentId = message.parentId ?? null;
+    if (parentId) {
+      const replies = byParent.get(parentId) ?? [];
+      replies.push({ ...message, replies: [] });
+      byParent.set(parentId, replies);
+    } else {
+      roots.push({ ...message, replies: [] });
+    }
+  }
+  for (const root of roots) {
+    root.replies = (byParent.get(root.id) ?? []).sort((a, b) => a.createdAt - b.createdAt);
+  }
+  return roots;
+}
 export function stationToRow(input: Partial<Station> & { name: string }) {
   return {
     code: input.code ?? input.name.slice(0, 2),
