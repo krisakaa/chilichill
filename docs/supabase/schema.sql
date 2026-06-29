@@ -36,6 +36,7 @@ create table if not exists public.message_images (
   id uuid primary key default gen_random_uuid(),
   message_id uuid not null references public.messages(id) on delete cascade,
   url text not null,
+  thumb_url text,
   sort_order integer not null default 0 check (sort_order between 0 and 5),
   created_at timestamptz not null default now()
 );
@@ -51,6 +52,9 @@ create table if not exists public.message_reactions (
 
 alter table public.messages
   add column if not exists parent_id uuid references public.messages(id) on delete cascade;
+
+alter table public.message_images
+  add column if not exists thumb_url text;
 
 create index if not exists message_images_message_id_sort_idx
   on public.message_images (message_id, sort_order);

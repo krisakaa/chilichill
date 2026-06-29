@@ -12,6 +12,8 @@ import { SEED_STATIONS, SEED_MESSAGES, SEED_USERS } from './seed';
 
 type Reaction = { messageId: string; visitorId: string; type: ReactionType; createdAt: number };
 type DB = { stations: Station[]; messages: Message[]; users: User[]; reactions: Reaction[] };
+export type MessagePage = { items: Message[]; nextOffset: number | null; hasMore: boolean };
+export type MessagePageOpts = { includeHidden?: boolean; visitorId?: string; limit?: number; offset?: number; order?: 'asc' | 'desc' };
 
 const STORE_KEY = 'chilichill_diary_v1';
 
@@ -63,6 +65,7 @@ function normalize(db: DB): void {
     message.parentId ??= null;
     message.status ??= 'published';
     message.images ??= message.image ? [message.image] : [];
+    message.imageThumbs ??= [];
     message.likesCount ??= 0;
     message.heartsCount ??= 0;
     message.viewerLiked ??= false;
@@ -125,6 +128,22 @@ function uid(prefix: string): string {
   return prefix + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
 }
 
+function pageMessages(messages: Message[], opts?: MessagePageOpts): MessagePage {
+  const rawLimit = opts?.limit ?? 30;
+  const rawOffset = opts?.offset ?? 0;
+  const limit = Math.min(50, Math.max(1, Number.isFinite(rawLimit) ? Math.floor(rawLimit) : 30));
+  const offset = Math.max(0, Number.isFinite(rawOffset) ? Math.floor(rawOffset) : 0);
+  const order = opts?.order === 'asc' ? 'asc' : 'desc';
+  const roots = messages.filter((message) => !message.parentId);
+  roots.sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || (order === 'asc' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt));
+  const pageRoots = roots.slice(offset, offset + limit);
+  const rootIds = new Set(pageRoots.map((message) => message.id));
+  const replies = messages.filter((message) => message.parentId && rootIds.has(message.parentId));
+  const items = nestMessages(withReactionState([...pageRoots, ...replies], opts?.visitorId));
+  const nextOffset = offset + pageRoots.length < roots.length ? offset + pageRoots.length : null;
+  return { items: clone(items), nextOffset, hasMore: nextOffset !== null };
+}
+
 /* ---------- 查询接口 ---------- */
 
 export async function listStations(): Promise<Station[]> {
@@ -138,31 +157,27 @@ export async function getStation(id: string): Promise<Station | null> {
   return clone(db.stations.find((s) => s.id === id) ?? null);
 }
 
-export async function listMessages(stationId: string, opts?: { includeHidden?: boolean; visitorId?: string }): Promise<Message[]> {
+export async function listMessages(stationId: string, opts?: MessagePageOpts): Promise<MessagePage> {
   const db = load();
   let msgs = db.messages.filter((m) => m.stationId === stationId);
   if (!opts?.includeHidden) msgs = msgs.filter((m) => m.status === 'published');
   // 官方置顶，再按时间倒序
-  msgs.sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || b.createdAt - a.createdAt);
-  return clone(nestMessages(withReactionState(msgs, opts?.visitorId)));
+  return pageMessages(msgs, opts);
 }
 
-export async function listMessagesForStations(stationIds: string[], opts?: { includeHidden?: boolean; visitorId?: string }): Promise<Message[]> {
+export async function listMessagesForStations(stationIds: string[], opts?: MessagePageOpts): Promise<MessagePage> {
   const db = load();
   const ids = new Set(stationIds);
   let msgs = db.messages.filter((m) => m.stationId !== null && ids.has(m.stationId));
   if (!opts?.includeHidden) msgs = msgs.filter((m) => m.status === 'published');
-  msgs.sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || b.createdAt - a.createdAt);
-  return clone(nestMessages(withReactionState(msgs, opts?.visitorId)));
+  return pageMessages(msgs, opts);
 }
 
 
-export async function listAllPublicMessages(opts?: { visitorId?: string }): Promise<Message[]> {
+export async function listAllPublicMessages(opts?: MessagePageOpts): Promise<MessagePage> {
   const db = load();
-  const msgs = db.messages
-    .filter((m) => m.status === 'published')
-    .sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || b.createdAt - a.createdAt);
-  return clone(nestMessages(withReactionState(msgs, opts?.visitorId)));
+  const msgs = db.messages.filter((m) => m.status === 'published');
+  return pageMessages(msgs, opts);
 }
 export async function listAllMessages(): Promise<Message[]> {
   const db = load();
@@ -187,6 +202,7 @@ export async function createMessage(input: {
   cityTag: string;
   image?: string;
   images?: string[];
+  imageThumbs?: string[];
 }): Promise<Message> {
   const db = load();
   let parentId: string | null = null;
@@ -210,6 +226,7 @@ export async function createMessage(input: {
     cityTag: input.cityTag,
     image: input.images?.[0] ?? input.image ?? '',
     images: input.images ?? (input.image ? [input.image] : []),
+    imageThumbs: input.imageThumbs ?? [],
     likesCount: 0,
     heartsCount: 0,
     viewerLiked: false,

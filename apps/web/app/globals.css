@@ -311,7 +311,7 @@ html, body { height: 100%; overflow: hidden; background: #000;
 .station-head .badge-status.live { background: var(--hot); color: var(--shadow); box-shadow: 0 0 0 1px var(--gold); }
 .station-head .badge-status.upcoming { color: var(--cool); }
 
-.card { background: rgba(36,25,71,.92); margin: 12px 14px; padding: 12px; box-shadow: 0 0 0 1px rgba(244,231,211,.78), 3px 3px 0 var(--shadow); position: relative; animation: cardIn .4s steps(5); }
+.card { background: rgba(36,25,71,.92); margin: 12px 14px; padding: 12px; box-shadow: 0 0 0 1px rgba(244,231,211,.78), 3px 3px 0 var(--shadow); position: relative; animation: cardIn .4s steps(5); content-visibility: auto; contain-intrinsic-size: 260px; }
 .card.official { box-shadow: 0 0 0 1px var(--gold), 3px 3px 0 var(--shadow); background: linear-gradient(180deg, rgba(77,55,22,.94), rgba(36,25,71,.94)); }
 .card.official::before { content: "官方"; position: absolute; top: -8px; left: 10px; font-family: 'Press Start 2P'; font-size: 6px;
   background: var(--gold); color: var(--shadow); padding: 3px 6px; box-shadow: 1px 1px 0 var(--shadow); }
@@ -339,7 +339,7 @@ html, body { height: 100%; overflow: hidden; background: #000;
 .reaction-btn:active { transform: translate(2px,2px); box-shadow: none; }
 .reply-action { color: var(--cool); }
 .reply-list { margin-top: 10px; padding-left: 12px; display: grid; gap: 9px; border-left: 2px solid rgba(55,215,226,.45); }
-.reply-card { background: rgba(22,15,45,.78); padding: 10px; box-shadow: 0 0 0 1px rgba(177,160,204,.58), 2px 2px 0 var(--shadow); position: relative; }
+.reply-card { background: rgba(22,15,45,.78); padding: 10px; box-shadow: 0 0 0 1px rgba(177,160,204,.58), 2px 2px 0 var(--shadow); position: relative; content-visibility: auto; contain-intrinsic-size: 170px; }
 .reply-card .avatar { width: 28px; height: 28px; font-size: 9px; }
 .reply-card .who b { font-size: 13px; }
 .reply-card .body { font-size: 14px; }
@@ -347,6 +347,9 @@ html, body { height: 100%; overflow: hidden; background: #000;
 .source-tag { display: inline-block; margin: 0 0 8px; padding: 4px 6px; font-family: 'Press Start 2P'; font-size: 6px; color: var(--cool); background: rgba(10,5,24,.5); box-shadow: 0 0 0 1px rgba(55,215,226,.5); line-height: 1.6; }
 .reply-context { margin: -4px 0 12px; padding: 9px 10px; font-size: 13px; line-height: 1.55; color: var(--dim); background: rgba(10,5,24,.42); box-shadow: 0 0 0 1px rgba(177,160,204,.5); max-height: 72px; overflow: hidden; }
 .empty { padding: 52px 20px; text-align: center; color: var(--dim); font-size: 14px; line-height: 1.7; } .empty .npc { margin: 0 auto 14px; }
+.load-more-row { padding: 14px 16px 92px; display: flex; justify-content: center; }
+.load-more-btn { font-family: 'Press Start 2P', 'ZCOOL KuaiLe', monospace; font-size: 8px; padding: 10px 14px; color: var(--shadow); background: var(--gold); border: 0; cursor: pointer; box-shadow: 0 0 0 1px var(--shadow), 3px 3px 0 var(--shadow); }
+.load-more-btn:disabled { cursor: default; background: var(--bg2); color: var(--dim); box-shadow: 0 0 0 1px var(--line), 3px 3px 0 var(--shadow); }
 
 @media (max-width: 520px) {
   #wall-view .stage { padding-bottom: 72px; }

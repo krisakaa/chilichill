@@ -6,6 +6,8 @@ import { useApp } from '../store';
 
 const MAX_IMAGES = 6;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const THUMB_MAX_EDGE = 480;
+const THUMB_QUALITY = 0.72;
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 type PickedImage = {
@@ -17,6 +19,11 @@ type PickedImage = {
 type PresignResponse = {
   uploadUrl: string;
   publicUrl: string;
+};
+
+type UploadedImage = {
+  url: string;
+  thumbUrl: string;
 };
 
 function fileId(file: File) {
@@ -58,6 +65,59 @@ async function uploadImage(file: File): Promise<string> {
 
   if (!upload.ok) throw new Error('图片上传失败，请检查 R2 CORS 配置');
   return signed.publicUrl;
+}
+
+function blobToImage(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Thumbnail image decode failed'));
+    };
+    image.src = url;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', THUMB_QUALITY));
+}
+
+async function createThumbnail(file: File): Promise<File | null> {
+  if (file.type === 'image/gif') return null;
+  try {
+    const image = await blobToImage(file);
+    const scale = Math.min(1, THUMB_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(image, 0, 0, width, height);
+    const blob = await canvasToBlob(canvas);
+    if (!blob) return null;
+    const baseName = file.name.replace(/\.[^.]+$/u, '') || 'image';
+    return new File([blob], `${baseName}-thumb.webp`, { type: 'image/webp', lastModified: Date.now() });
+  } catch {
+    return null;
+  }
+}
+
+async function uploadPickedImage(file: File): Promise<UploadedImage> {
+  const url = await uploadImage(file);
+  const thumb = await createThumbnail(file);
+  if (!thumb) return { url, thumbUrl: '' };
+  try {
+    return { url, thumbUrl: await uploadImage(thumb) };
+  } catch {
+    return { url, thumbUrl: '' };
+  }
 }
 
 export function Composer() {
@@ -123,14 +183,15 @@ export function Composer() {
     if (wallMode === 'all' && !replyTarget && !city) { showToast('请先选择城市'); return; }
     try {
       setUploading(true);
-      const uploadedImages = images.length ? await Promise.all(images.map((image) => uploadImage(image.file))) : [];
+      const uploadedImages = images.length ? await Promise.all(images.map((image) => uploadPickedImage(image.file))) : [];
       try {
         await submitMessage({
           body: body.trim(),
           mood,
           rating: rating || 3,
           cityTag: city ?? replyTarget?.cityTag ?? '',
-          images: uploadedImages,
+          images: uploadedImages.map((image) => image.url),
+          imageThumbs: uploadedImages.map((image) => image.thumbUrl),
           parentId: replyTarget?.id ?? null,
         });
       } catch (error) {

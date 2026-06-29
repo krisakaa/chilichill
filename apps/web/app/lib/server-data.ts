@@ -6,6 +6,7 @@ const ADMIN_COOKIE = 'chilichill_admin';
 
 export type MessageImageInput = {
   url: string;
+  thumbUrl?: string | null;
   sortOrder: number;
 };
 
@@ -26,6 +27,7 @@ type StationRow = {
 
 type MessageImageRow = {
   url: string;
+  thumb_url?: string | null;
   sort_order: number | null;
 };
 
@@ -97,6 +99,13 @@ function imageUrls(row: MessageRow) {
   return row.image ? [row.image] : [];
 }
 
+function imageThumbUrls(row: MessageRow) {
+  return (row.message_images ?? [])
+    .filter((item) => item.url)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((item) => item.thumb_url ?? '');
+}
+
 export function emptyReactionSummary(): ReactionSummary {
   return { likesCount: 0, heartsCount: 0, viewerLiked: false, viewerHearted: false };
 }
@@ -126,6 +135,7 @@ export function isMissingReactionTable(error: unknown) {
 
 export function mapMessage(row: MessageRow, reactions?: Partial<ReactionSummary>): Message {
   const images = imageUrls(row);
+  const imageThumbs = imageThumbUrls(row);
   const summary = { ...emptyReactionSummary(), ...(reactions ?? {}) };
   return {
     id: row.id,
@@ -140,6 +150,7 @@ export function mapMessage(row: MessageRow, reactions?: Partial<ReactionSummary>
     cityTag: row.city_tag,
     image: images[0] ?? '',
     images,
+    imageThumbs,
     likesCount: summary.likesCount,
     heartsCount: summary.heartsCount,
     viewerLiked: summary.viewerLiked,
@@ -184,9 +195,10 @@ export function stationToRow(input: Partial<Station> & { name: string }) {
   };
 }
 
-export function messageImageRows(messageId: string, images: string[]): MessageImageInput[] {
+export function messageImageRows(messageId: string, images: string[], imageThumbs: string[] = []): MessageImageInput[] {
   return images.slice(0, 6).map((url, index) => ({
     url,
+    thumbUrl: imageThumbs[index] || null,
     sortOrder: index,
   }));
 }

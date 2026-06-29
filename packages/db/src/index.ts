@@ -1,6 +1,9 @@
 import type { Message, MessageStatus, ReactionType, Station } from '@chili/shared';
 import * as mock from './mock';
 
+export type MessagePage = mock.MessagePage;
+export type MessagePageOpts = mock.MessagePageOpts;
+
 function canUseApi() {
   return typeof window !== 'undefined';
 }
@@ -25,22 +28,42 @@ export async function getStation(id: string) {
   return stations.find((station) => station.id === id) ?? null;
 }
 
-export async function listMessages(stationId: string, opts?: { includeHidden?: boolean; visitorId?: string }) {
+function pageQuery(opts?: MessagePageOpts) {
+  const params = new URLSearchParams();
+  if (opts?.visitorId) params.set('visitorId', opts.visitorId);
+  if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+  if (opts?.offset !== undefined) params.set('offset', String(opts.offset));
+  if (opts?.order) params.set('order', opts.order);
+  return params;
+}
+
+function normalizePage(result: MessagePage | Message[] | null, fallback: MessagePage): MessagePage {
+  if (!result) return fallback;
+  if (Array.isArray(result)) return { items: result, nextOffset: null, hasMore: false };
+  return result;
+}
+
+export async function listMessages(stationId: string, opts?: MessagePageOpts) {
   if (opts?.includeHidden) return mock.listMessages(stationId, opts);
-  const visitor = opts?.visitorId ? `&visitorId=${encodeURIComponent(opts.visitorId)}` : '';
-  return (await api<Awaited<ReturnType<typeof mock.listMessages>>>(`/api/messages?stationId=${encodeURIComponent(stationId)}${visitor}`)) ?? mock.listMessages(stationId, opts);
+  const params = pageQuery(opts);
+  params.set('stationId', stationId);
+  const fallback = await mock.listMessages(stationId, opts);
+  return normalizePage(await api<MessagePage | Message[]>(`/api/messages?${params.toString()}`), fallback);
 }
 
-export async function listMessagesForStations(stationIds: string[], opts?: { includeHidden?: boolean; visitorId?: string }) {
+export async function listMessagesForStations(stationIds: string[], opts?: MessagePageOpts) {
   if (opts?.includeHidden) return mock.listMessagesForStations(stationIds, opts);
-  const query = stationIds.map(encodeURIComponent).join(',');
-  const visitor = opts?.visitorId ? `&visitorId=${encodeURIComponent(opts.visitorId)}` : '';
-  return (await api<Awaited<ReturnType<typeof mock.listMessagesForStations>>>(`/api/messages?stationIds=${query}${visitor}`)) ?? mock.listMessagesForStations(stationIds, opts);
+  const params = pageQuery(opts);
+  params.set('stationIds', stationIds.join(','));
+  const fallback = await mock.listMessagesForStations(stationIds, opts);
+  return normalizePage(await api<MessagePage | Message[]>(`/api/messages?${params.toString()}`), fallback);
 }
 
-export async function listAllPublicMessages(opts?: { visitorId?: string }) {
-  const visitor = opts?.visitorId ? `&visitorId=${encodeURIComponent(opts.visitorId)}` : '';
-  return (await api<Awaited<ReturnType<typeof mock.listAllPublicMessages>>>(`/api/messages?all=1${visitor}`)) ?? mock.listAllPublicMessages(opts);
+export async function listAllPublicMessages(opts?: MessagePageOpts) {
+  const params = pageQuery(opts);
+  params.set('all', '1');
+  const fallback = await mock.listAllPublicMessages(opts);
+  return normalizePage(await api<MessagePage | Message[]>(`/api/messages?${params.toString()}`), fallback);
 }
 
 export async function listAllMessages() {

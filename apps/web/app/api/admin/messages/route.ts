@@ -7,7 +7,7 @@ export async function GET() {
   const supabase = adminClient();
   const { data, error } = await supabase
     .from('messages')
-    .select('*, message_images(url, sort_order)')
+    .select('*, message_images(url, thumb_url, sort_order)')
     .order('created_at', { ascending: false });
   if (error) return Response.json({ error: error.message }, { status: 500 });
   const messageIds = (data ?? []).map((message) => message.id);

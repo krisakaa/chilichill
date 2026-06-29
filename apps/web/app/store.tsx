@@ -14,6 +14,7 @@ export interface SubmitMessageInput {
   cityTag: string;
   image?: string;
   images?: string[];
+  imageThumbs?: string[];
   parentId?: string | null;
 }
 
@@ -37,6 +38,10 @@ interface AppContextValue {
 
   messages: Message[];
   refreshMessages: () => Promise<void>;
+  loadMoreMessages: () => Promise<void>;
+  messagesHasMore: boolean;
+  messagesLoading: boolean;
+  messagesLoadingMore: boolean;
   toggleReaction: (messageId: string, type: ReactionType) => Promise<void>;
   sortNew: boolean;
   toggleSort: () => void;
@@ -68,6 +73,7 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 const VISITOR_KEY = 'chilichill_visitor_id';
+const MESSAGE_PAGE_SIZE = 30;
 
 function getVisitorId() {
   if (typeof window === 'undefined') return '';
@@ -109,6 +115,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [curCityStations, setCurCityStations] = useState<Station[]>([]);
   const [curSwitchStations, setCurSwitchStations] = useState<Station[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesNextOffset, setMessagesNextOffset] = useState<number | null>(0);
+  const [messagesHasMore, setMessagesHasMore] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesLoadingMore, setMessagesLoadingMore] = useState(false);
   const [wallMode, setWallMode] = useState<WallMode>('city');
   const [user, setUser] = useState<User | null>(null);
   const [sortNew, setSortNew] = useState(true);
@@ -138,13 +148,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurSwitchStations((prev) => prev.length ? s.filter((station) => prev.some((item) => item.id === station.id)) : []);
   }, []);
 
+  const fetchMessagesPage = useCallback(async (offset: number, append: boolean) => {
+    const opts = { visitorId: visitorId || undefined, limit: MESSAGE_PAGE_SIZE, offset, order: sortNew ? 'desc' as const : 'asc' as const };
+    if (wallMode !== 'all' && !curStation) {
+      setMessages([]);
+      setMessagesNextOffset(null);
+      setMessagesHasMore(false);
+      return;
+    }
+    const stationIds = curStation ? (curCityStations.length ? curCityStations.map((station) => station.id) : [curStation.id]) : [];
+    const page = wallMode === 'all'
+      ? await listAllPublicMessages(opts)
+      : stationIds.length > 1
+        ? await listMessagesForStations(stationIds, opts)
+        : await listMessages(stationIds[0], opts);
+    setMessages((current) => {
+      if (!append) return page.items;
+      const seen = new Set(current.map((message) => message.id));
+      return [...current, ...page.items.filter((message) => !seen.has(message.id))];
+    });
+    setMessagesNextOffset(page.nextOffset);
+    setMessagesHasMore(page.hasMore);
+  }, [curStation, curCityStations, sortNew, visitorId, wallMode]);
+
   const refreshMessages = useCallback(async () => {
-    const opts = visitorId ? { visitorId } : undefined;
-    if (wallMode === 'all') { setMessages(await listAllPublicMessages(opts)); return; }
-    if (!curStation) { setMessages([]); return; }
-    const stationIds = curCityStations.length ? curCityStations.map((station) => station.id) : [curStation.id];
-    setMessages(stationIds.length > 1 ? await listMessagesForStations(stationIds, opts) : await listMessages(curStation.id, opts));
-  }, [curStation, curCityStations, visitorId, wallMode]);
+    setMessagesLoading(true);
+    setMessagesNextOffset(0);
+    try {
+      await fetchMessagesPage(0, false);
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, [fetchMessagesPage]);
+
+  const loadMoreMessages = useCallback(async () => {
+    if (messagesLoadingMore || !messagesHasMore || messagesNextOffset === null) return;
+    setMessagesLoadingMore(true);
+    try {
+      await fetchMessagesPage(messagesNextOffset, true);
+    } finally {
+      setMessagesLoadingMore(false);
+    }
+  }, [fetchMessagesPage, messagesHasMore, messagesLoadingMore, messagesNextOffset]);
 
   // boot
   useEffect(() => {
@@ -157,7 +202,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { refreshStations(); }, [refreshStations]);
 
   // load messages when entering a wall
-  useEffect(() => { if (curStation || wallMode === 'all') refreshMessages(); }, [curStation, wallMode, refreshMessages]);
+  useEffect(() => { if (curStation || wallMode === 'all') refreshMessages(); }, [curStation, wallMode, sortNew, refreshMessages]);
 
   const openWall = useCallback((s: Station) => {
     setWallMode('city');
@@ -184,9 +229,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurCityStations([]);
     setCurSwitchStations([]);
     setScreen('wall');
-    const opts = visitorId ? { visitorId } : undefined;
-    setMessages(await listAllPublicMessages(opts));
-  }, [visitorId]);
+  }, []);
 
   const login = useCallback(async (name: string, password?: string) => {
     const admin = name.toLowerCase() === 'admin';
@@ -232,6 +275,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cityTag: input.cityTag,
       image: input.images?.[0] ?? input.image ?? '',
       images: input.images ?? (input.image ? [input.image] : []),
+      imageThumbs: input.imageThumbs ?? [],
       parentId: input.parentId ?? null,
     });
     await refreshMessages();
@@ -296,7 +340,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     booted, screen, setScreen,
     stations, refreshStations,
     curStation, curCityStations, curSwitchStations, openWall, openCityWall, backToMap, wallMode, openAllWall, clearReplyTarget,
-    messages, refreshMessages, toggleReaction, sortNew, toggleSort,
+    messages, refreshMessages, loadMoreMessages, messagesHasMore, messagesLoading, messagesLoadingMore, toggleReaction, sortNew, toggleSort,
     user, login, logout,
     toast, showToast, submitMessage, replyTarget, openReplyComposer, openAdmin,
     loginOpen, setLoginOpen, composerOpen, setComposerOpen,
