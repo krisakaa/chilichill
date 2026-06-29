@@ -96,6 +96,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [visitorId, setVisitorId] = useState('');
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reactionPending = useRef<Set<string>>(new Set());
 
   const showToast = useCallback((t: string) => {
     setToast(t);
@@ -118,17 +119,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMessages(stationIds.length > 1 ? await listMessagesForStations(stationIds, opts) : await listMessages(curStation.id, opts));
   }, [curStation, curCityStations, visitorId]);
 
-  // 开机
+  // boot
   useEffect(() => {
     const t = setTimeout(() => setBooted(true), 2200);
     setVisitorId(getVisitorId());
     return () => clearTimeout(t);
   }, []);
 
-  // 初始加载站点
+  // boot
   useEffect(() => { refreshStations(); }, [refreshStations]);
 
-  // 进入站点时加载留言
+  // boot
   useEffect(() => { if (curStation) refreshMessages(); }, [curStation, refreshMessages]);
 
   const openWall = useCallback((s: Station) => {
@@ -157,7 +158,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ password }),
       });
       if (!response.ok && response.status !== 503) {
-        showToast('管理员密码错误');
+        showToast('Admin password is incorrect.');
         return;
       }
     }
@@ -168,13 +169,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       avatar: admin ? 0 : Math.floor(Math.random() * 5) + 1,
     });
     setLoginOpen(false);
-    showToast('欢迎，' + name + (admin ? ' · 管理员' : ''));
+    showToast('Welcome, ' + name + (admin ? ' / Admin' : ''));
   }, [showToast]);
 
   const logout = useCallback(async () => {
     if (user?.role === 'admin') await fetch('/api/admin/auth', { method: 'DELETE' }).catch(() => undefined);
     setUser(null);
-    showToast('已退出');
+    showToast('Logged out.');
   }, [user, showToast]);
 
   const submitMessage = useCallback(async (input: SubmitMessageInput) => {
@@ -193,14 +194,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await refreshMessages();
     await refreshStations();
     setComposerOpen(false);
-    showToast('已发布');
+    showToast('Published.');
   }, [user, curStation, refreshMessages, refreshStations, showToast]);
 
   const toggleReaction = useCallback(async (messageId: string, type: ReactionType) => {
+    const pendingKey = messageId + ':' + type;
+    if (reactionPending.current.has(pendingKey)) return;
+    reactionPending.current.add(pendingKey);
     const activeVisitorId = visitorId || getVisitorId();
     if (!visitorId) setVisitorId(activeVisitorId);
     const target = messages.find((message) => message.id === messageId);
-    if (!target) return;
+    if (!target) { reactionPending.current.delete(pendingKey); return; }
     const likedKey = type === 'like' ? 'viewerLiked' : 'viewerHearted';
     const countKey = type === 'like' ? 'likesCount' : 'heartsCount';
     const wasOn = Boolean(target[likedKey]);
@@ -214,7 +218,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMessages((current) => current.map((message) => message.id === messageId ? { ...message, ...next } : message));
     } catch {
       setMessages((current) => current.map((message) => message.id === messageId ? target : message));
-      showToast('浜掑姩澶辫触锛岃绋嶅悗閲嶈瘯');
+      showToast('Reaction failed. Try again.');
+    } finally {
+      reactionPending.current.delete(pendingKey);
     }
   }, [messages, showToast, visitorId]);
 
@@ -225,7 +231,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const openAdmin = useCallback(async () => {
     if (!user || user.role !== 'admin') {
-      showToast('需要管理员登录');
+      showToast('Admin login required.');
       setLoginOpen(true);
       return;
     }
