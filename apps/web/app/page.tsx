@@ -7,6 +7,7 @@ import { MessageWall } from './components/MessageWall';
 import { AdminConsole } from './components/AdminConsole';
 import { Composer } from './components/Composer';
 import { LoginModal } from './components/LoginModal';
+import { ShareModal } from './components/ShareModal';
 import { Lightbox, Toast } from './components/Overlays';
 
 function Shell() {
@@ -28,6 +29,7 @@ function Shell() {
 
       <Composer />
       <LoginModal />
+      <ShareModal />
       <Lightbox />
       <Toast />
     </div>

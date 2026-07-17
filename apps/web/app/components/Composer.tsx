@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MOODS } from '@chili/shared';
 import { useApp } from '../store';
 
@@ -128,12 +128,19 @@ export function Composer() {
   const [city, setCity] = useState<string | null>(null);
   const [images, setImages] = useState<PickedImage[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canAddImages = images.length < MAX_IMAGES;
   const imageCountText = useMemo(() => `${images.length}/${MAX_IMAGES}`, [images.length]);
 
-  if (!composerOpen) return null;
+  if (!composerOpen && !closing) return null;
+
+  useEffect(() => {
+    if (composerOpen) setClosing(false);
+    return () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); };
+  }, [composerOpen]);
 
   const clearImages = () => {
     for (const image of images) URL.revokeObjectURL(image.preview);
@@ -207,16 +214,20 @@ export function Composer() {
   };
 
   return (
-    <div className="modal active" id="composer">
+    <div className={`modal ${closing ? 'closing' : 'active'}`} id="composer">
       <div className="sheet">
-        <h3>{replyTarget ? `回复 ${replyTarget.author}` : '写下你的日记'}</h3>
-        {replyTarget && <div className="reply-context">{replyTarget.body}</div>}
+        <div className="sheet-header">
+          <div className="sheet-avatar">{replyTarget ? '💬' : '✏️'}</div>
+          <h3>{replyTarget ? `回复 ${replyTarget.author}` : '写下你的日记'}</h3>
+          <button className="sheet-close" onClick={reset} aria-label="关闭">✕</button>
+        </div>
+        {replyTarget && <div className="reply-context"><span className="reply-label">回复内容</span>{replyTarget.body}</div>}
         <div className="field">
-          <label>留言</label>
+          <label><span className="field-icon">📝</span>留言</label>
           <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="今天的现场太燃了..." />
         </div>
         <div className="field">
-          <label>心情（小人表情）</label>
+          <label><span className="field-icon">😊</span>心情</label>
           <div className="row">
             {MOODS.map((m) => (
               <div key={m} className={`mood-pick ${mood === m ? 'on' : ''}`} onClick={() => setMood(m)}>{m}</div>
@@ -224,7 +235,7 @@ export function Composer() {
           </div>
         </div>
         <div className="field">
-          <label>评分</label>
+          <label><span className="field-icon">⭐</span>评分</label>
           <div className="row">
             {[1, 2, 3, 4, 5].map((v) => (
               <span key={v} className={`star-pick ${rating >= v ? 'on' : ''}`} onClick={() => setRating(v)}>★</span>
@@ -232,7 +243,7 @@ export function Composer() {
           </div>
         </div>
         <div className="field">
-          <label>现场图片（可选 · {imageCountText}）</label>
+          <label><span className="field-icon">📷</span>现场图片（可选 · {imageCountText}）</label>
           <input
             ref={fileInputRef}
             className="file-input"
@@ -244,26 +255,31 @@ export function Composer() {
           <div className="image-picker">
             {images.map((image) => (
               <button key={image.id} type="button" className="img-slot has" style={{ backgroundImage: `url(${image.preview})` }} onClick={() => removeImage(image.id)} aria-label="移除图片">
-                <span>×</span>
+                <span className="remove-icon">×</span>
               </button>
             ))}
             {canAddImages && (
-              <button type="button" className="img-slot" onClick={() => fileInputRef.current?.click()} disabled={uploading}>+</button>
+              <button type="button" className="img-slot add-slot" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                <span className="add-icon">+</span>
+                <small>添加</small>
+              </button>
             )}
           </div>
         </div>
         <div className="field">
-          <label>城市标记</label>
+          <label><span className="field-icon">📍</span>城市标记</label>
           <div className="row">
             {stations.map((s) => (
               <div key={s.id} className={`city-pick ${city === s.name ? 'on' : ''}`} onClick={() => setCity(s.name)}>{s.name}</div>
             ))}
           </div>
         </div>
-        <div className="auth-note">{user ? `以 ${user.username} 身份发布` : '请先登录'}</div>
-        <div className="actions">
-          <button className="btn cancel" onClick={reset} disabled={uploading}>取消</button>
-          <button className="btn post" onClick={submit} disabled={uploading}>{uploading ? '上传中...' : '发布'}</button>
+        <div className="composer-footer">
+          <div className="auth-note">{user ? `以 ${user.username} 身份发布` : '请先登录'}</div>
+          <div className="actions">
+            <button className="btn cancel" onClick={reset} disabled={uploading}>取消</button>
+            <button className="btn post" onClick={submit} disabled={uploading}>{uploading ? '上传中...' : '发布'}</button>
+          </div>
         </div>
       </div>
     </div>

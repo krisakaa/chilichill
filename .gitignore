@@ -12,3 +12,9 @@ coverage
 .webpack
 .idea
 .vscode
+
+# Screenshots
+screenshot*.png
+
+*.tsbuildinfo
+

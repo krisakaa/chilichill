@@ -7,7 +7,7 @@ export function Lightbox() {
   if (!lightbox) return null;
   return (
     <div className="active" id="lightbox" onClick={(e) => { if ((e.target as HTMLElement).id === 'lightbox') setLightbox(null); }}>
-      <button className="close" onClick={() => setLightbox(null)}>✕</button>
+      <button className="close" onClick={() => setLightbox(null)} aria-label="关闭">✕</button>
       <img src={lightbox} alt="" />
     </div>
   );

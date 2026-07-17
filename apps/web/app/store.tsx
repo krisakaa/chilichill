@@ -56,6 +56,7 @@ interface AppContextValue {
   replyTarget: Message | null;
   openReplyComposer: (message: Message) => void;
   openAdmin: () => Promise<void>;
+  footprintStationIds: string[];
 
   // modals
   loginOpen: boolean;
@@ -64,6 +65,8 @@ interface AppContextValue {
   setComposerOpen: (b: boolean) => void;
   lightbox: string | null;
   setLightbox: (s: string | null) => void;
+  shareOpen: boolean;
+  setShareOpen: (b: boolean) => void;
 
   // admin data
   allMsgs: Message[];
@@ -73,6 +76,7 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 const VISITOR_KEY = 'chilichill_visitor_id';
+const FOOTPRINT_KEY = 'chilichill_footprint_station_ids';
 const MESSAGE_PAGE_SIZE = 30;
 
 function getVisitorId() {
@@ -82,6 +86,21 @@ function getVisitorId() {
   const next = `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
   localStorage.setItem(VISITOR_KEY, next);
   return next;
+}
+
+function getFootprintStationIds() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FOOTPRINT_KEY) ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveFootprintStationIds(ids: string[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(FOOTPRINT_KEY, JSON.stringify([...new Set(ids)]));
 }
 
 function findMessageById(messages: Message[], id: string): Message | null {
@@ -127,6 +146,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [composerOpen, setComposerOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [footprintStationIds, setFootprintStationIds] = useState<string[]>([]);
   const [allMsgs, setAllMsgs] = useState<Message[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [visitorId, setVisitorId] = useState('');
@@ -195,6 +216,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const t = setTimeout(() => setBooted(true), 2200);
     setVisitorId(getVisitorId());
+    setFootprintStationIds(getFootprintStationIds());
     return () => clearTimeout(t);
   }, []);
 
@@ -278,6 +300,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       imageThumbs: input.imageThumbs ?? [],
       parentId: input.parentId ?? null,
     });
+    if (stationId) {
+      setFootprintStationIds((current) => {
+        const next = [...new Set([...current, stationId])];
+        saveFootprintStationIds(next);
+        return next;
+      });
+    }
     await refreshMessages();
     await refreshStations();
     setComposerOpen(false);
@@ -342,9 +371,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     curStation, curCityStations, curSwitchStations, openWall, openCityWall, backToMap, wallMode, openAllWall, clearReplyTarget,
     messages, refreshMessages, loadMoreMessages, messagesHasMore, messagesLoading, messagesLoadingMore, toggleReaction, sortNew, toggleSort,
     user, login, logout,
-    toast, showToast, submitMessage, replyTarget, openReplyComposer, openAdmin,
+    toast, showToast, submitMessage, replyTarget, openReplyComposer, openAdmin, footprintStationIds,
     loginOpen, setLoginOpen, composerOpen, setComposerOpen,
-    lightbox, setLightbox,
+    lightbox, setLightbox, shareOpen, setShareOpen,
     allMsgs, users, refreshAdmin,
   };
 

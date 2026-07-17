@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PALETTES, type Station, type StationStatus } from '@chili/shared';
 import { useApp } from '../store';
-import { CityDrawer, useCityGroups, useDesktopLayout } from './CityDrawer';
+import { CityDrawer, useCityGroups, useDesktopLayout, cityGroupKey } from './CityDrawer';
 
 const BOARD_W = 72;
 const BOARD_H = 68;
@@ -159,7 +159,7 @@ function markerPosition(station: Station, provinceCenters: Record<string, Projec
 }
 
 export function TourMap() {
-  const { stations, curStation, openWall, openCityWall, openAllWall, openAdmin, user, logout, setLoginOpen, screen } = useApp();
+  const { stations, curStation, openWall, openCityWall, openAllWall, openAdmin, user, logout, setLoginOpen, setShareOpen, screen } = useApp();
   const [china, setChina] = useState<ChinaGeoJson | null>(null);
   const [cityDrawerOpen, setCityDrawerOpen] = useState(false);
   const desktopMap = useDesktopLayout();
@@ -213,6 +213,7 @@ export function TourMap() {
         <div className="wordmark">ChiliChill<small>巡演日记</small></div>
         <div className="map-actions">
           <button className="ico-btn city-menu-btn" onClick={() => setCityDrawerOpen(true)} disabled={cityGroups.length === 0}>城市</button>
+          <button className="ico-btn" onClick={() => setShareOpen(true)}>分享</button>
           <button className="ico-btn all-menu-btn" onClick={() => { setCityDrawerOpen(false); openAllWall(); }}>全站</button>
           <button className="ico-btn on" onClick={() => (user ? logout() : setLoginOpen(true))}>
             {user ? (user.role === 'admin' ? '管理' : '退出') : '登录'}
@@ -266,17 +267,67 @@ export function TourMap() {
               }).join(' ')}
             />
 
-            {visibleCityGroups.map((group) => {
-              const station = group[0];
-              const center = markerPosition(station, provinceCenters);
-              const color = PALETTES[station.palette];
-              return (
-                <g key={`${station.provinceAdcode ?? station.provinceName}-${station.cityName}`} className="block-marker" onClick={() => openCityWall(station, group)}>
-                  <circle className="marker-hit" cx={center.x} cy={center.y} r={desktopMap ? '2.2' : '4.2'} />
-                  <circle className="marker-dot" cx={center.x} cy={center.y} r={group.length > 1 ? '1.28' : '1.08'} style={{ fill: color }} />
-                </g>
-              );
-            })}
+            {(() => {
+              const spreadOffsets: Record<string, { x: number; y: number }> = {};
+              for (const g of visibleCityGroups) {
+                const s = g[0];
+                spreadOffsets[s.id] = markerPosition(s, provinceCenters);
+              }
+              for (let pass = 0; pass < 10; pass++) {
+                let moved = false;
+                for (const g of visibleCityGroups) {
+                  const s = g[0];
+                  let cx = spreadOffsets[s.id].x;
+                  let cy = spreadOffsets[s.id].y;
+                  for (const og of visibleCityGroups) {
+                    if (og === g) continue;
+                    const os = og[0];
+                    const ox = spreadOffsets[os.id].x;
+                    const oy = spreadOffsets[os.id].y;
+                    const dx = cx - ox;
+                    const dy = cy - oy;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0 && dist < 2.8) {
+                      const push = (2.8 - dist) * 0.4;
+                      const angle = Math.atan2(dy, dx);
+                      cx += Math.cos(angle) * push;
+                      cy += Math.sin(angle) * push;
+                      moved = true;
+                    }
+                  }
+                  const base = markerPosition(s, provinceCenters);
+                  const sdx = cx - base.x;
+                  const sdy = cy - base.y;
+                  const sd = Math.sqrt(sdx * sdx + sdy * sdy);
+                  if (sd > 3.5) {
+                    const scale = 3.5 / sd;
+                    cx = base.x + sdx * scale;
+                    cy = base.y + sdy * scale;
+                  }
+                  spreadOffsets[s.id] = { x: cx, y: cy };
+                }
+                if (!moved) break;
+              }
+              return visibleCityGroups.map((group, index) => {
+                const station = group[0];
+                const baseCenter = markerPosition(station, provinceCenters);
+                const center = spreadOffsets[station.id] || baseCenter;
+                const color = PALETTES[station.palette];
+                const isCurrent = curStation && cityGroupKey(curStation) === cityGroupKey(station);
+                const hasMulti = group.length > 1;
+                const markerClasses = ['block-marker', isCurrent ? 'current' : ''].filter(Boolean).join(' ');
+                return (
+                  <g key={station.provinceAdcode + '-' + station.cityName + '-' + index} className={markerClasses} onClick={() => openCityWall(station, group)}>
+                    {isCurrent && <circle className="marker-glow" cx={center.x} cy={center.y} r="2.5" style={{ fill: 'none', stroke: color, strokeWidth: '0.4', strokeDasharray: '0.6 0.4' }} />}
+                    <circle className="marker-hit" cx={center.x} cy={center.y} r={desktopMap ? '2.2' : '4.2'} />
+                    <circle className="marker-dot" cx={center.x} cy={center.y} r={hasMulti ? '1.35' : '1.08'} style={{ fill: color }} />
+                    {hasMulti && <text x={center.x} y={center.y} className="marker-badge" textAnchor="middle" dominantBaseline="central">{group.length}</text>}
+                    {desktopMap && <text x={center.x} y={center.y - 2.2} className="marker-label" textAnchor="middle">{station.cityName}</text>}
+                    <title>{station.cityName}{hasMulti ? ' (' + group.length + '场)' : ''} - {station.date}</title>
+                  </g>
+                );
+              });
+            })()}
           </svg>
           <div className="map-legend" aria-hidden="true">
             <span className="done">{TEXT.done}</span>
