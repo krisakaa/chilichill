@@ -14,9 +14,10 @@ interface MessageCardProps {
   onLightbox: (url: string) => void;
   onReply: (message: Message) => void;
   onReaction: (messageId: string, type: ReactionType) => void;
+  onShare?: (message: Message) => void;
 }
 
-const MessageCard = memo(function MessageCard({ message, isReply = false, wallMode, stationById, onLightbox, onReply, onReaction }: MessageCardProps) {
+const MessageCard = memo(function MessageCard({ message, isReply = false, wallMode, stationById, onLightbox, onReply, onReaction, onShare }: MessageCardProps) {
   const images = message.images?.length ? message.images : (message.image ? [message.image] : []);
   const thumbs = message.imageThumbs ?? [];
   const station = message.stationId ? stationById.get(message.stationId) : undefined;
@@ -54,6 +55,7 @@ const MessageCard = memo(function MessageCard({ message, isReply = false, wallMo
           {!isReply && <button className="reaction-btn reply-action" onClick={() => onReply(message)}>💬 {message.replies?.length ?? 0}</button>}
           <button className={`reaction-btn ${message.viewerLiked ? 'on' : ''}`} onClick={() => onReaction(message.id, 'like')} aria-label="点赞">👍 {message.likesCount ?? 0}</button>
           <button className={`reaction-btn heart ${message.viewerHearted ? 'on' : ''}`} onClick={() => onReaction(message.id, 'heart')} aria-label="比心">❤️ {message.heartsCount ?? 0}</button>
+          <button className="reaction-btn share-btn" onClick={() => onShare?.(message)} aria-label="分享">📤</button>
         </div>
       </div>
       {!isReply && Boolean(message.replies?.length) && (
@@ -79,7 +81,7 @@ const MessageCard = memo(function MessageCard({ message, isReply = false, wallMo
 export function MessageWall() {
   const {
     stations, curStation, curCityStations, curSwitchStations, messages, sortNew, toggleSort, backToMap, openCityWall,
-    wallMode, openAllWall, user, setComposerOpen, setLoginOpen, setLightbox, setShareOpen, showToast, screen, toggleReaction, openReplyComposer, clearReplyTarget,
+    wallMode, openAllWall, user, setComposerOpen, setLoginOpen, setLightbox, setShareOpen, openShareCard, showToast, screen, toggleReaction, openReplyComposer, clearReplyTarget,
     loadMoreMessages, messagesHasMore, messagesLoading, messagesLoadingMore,
   } = useApp();
   const [cityDrawerOpen, setCityDrawerOpen] = useState(false);

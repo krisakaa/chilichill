@@ -67,6 +67,10 @@ interface AppContextValue {
   setLightbox: (s: string | null) => void;
   shareOpen: boolean;
   setShareOpen: (b: boolean) => void;
+  shareMode: 'page' | 'footprint' | 'message';
+  shareTargetMessage: Message | null;
+  openShareCard: (mode: 'page' | 'footprint' | 'message', message?: Message | null) => void;
+  closeShareCard: () => void;
 
   // admin data
   allMsgs: Message[];
@@ -147,6 +151,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [shareMode, setShareMode] = useState<'page' | 'footprint' | 'message'>('page');
+  const [shareTargetMessage, setShareTargetMessage] = useState<Message | null>(null);
   const [footprintStationIds, setFootprintStationIds] = useState<string[]>([]);
   const [allMsgs, setAllMsgs] = useState<Message[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -372,6 +378,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     messages, refreshMessages, loadMoreMessages, messagesHasMore, messagesLoading, messagesLoadingMore, toggleReaction, sortNew, toggleSort,
     user, login, logout,
     toast, showToast, submitMessage, replyTarget, openReplyComposer, openAdmin, footprintStationIds,
+    shareMode, shareTargetMessage, openShareCard: (mode: 'page' | 'footprint' | 'message', message?: Message | null) => {
+      setShareMode(mode);
+      if (message) setShareTargetMessage(message);
+      setShareOpen(true);
+    }, closeShareCard: () => {
+      setShareOpen(false);
+      setShareTargetMessage(null);
+    },
     loginOpen, setLoginOpen, composerOpen, setComposerOpen,
     lightbox, setLightbox, shareOpen, setShareOpen,
     allMsgs, users, refreshAdmin,
