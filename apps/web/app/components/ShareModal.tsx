@@ -42,6 +42,20 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
   if (line && lines < maxLines) ctx.fillText(line, x, y + lines * lineH);
 }
 
+/* ===== 测量文字换行后的实际行数 ===== */
+function measureWrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number, lineH: number, maxLines: number): number {
+  const chars = [...text]; let line = ''; let lines = 0;
+  for (const c of chars) {
+    const next = line + c;
+    if (ctx.measureText(next).width > maxW && line) {
+      line = c; lines++;
+      if (lines >= maxLines) return maxLines;
+    } else { line = next; }
+  }
+  if (line && lines < maxLines) lines++;
+  return Math.max(1, lines);
+}
+
 /* ===== 画一个像素风的复古游戏机外壳 ===== */
 function drawRetroFrame(ctx: CanvasRenderingContext2D) {
   const pad = 48; const w = CARD_W - pad * 2; const h = CARD_H - pad * 2;
@@ -98,13 +112,13 @@ export function ShareModal() {
 
   useEffect(() => { setMode(shareMode); }, [shareMode]);
 
-  if (!shareOpen && !closingRef.current) return null;
-
   const handleClose = useCallback(() => {
     closingRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => { closingRef.current = false; setShareOpen(false); }, 250);
   }, [setShareOpen]);
+
+  if (!shareOpen && !closingRef.current) return null;
 
   /* ===== 卡片内容计算 ===== */
   const title = mode === 'message' && shareTargetMessage
@@ -173,12 +187,31 @@ export function ShareModal() {
       drawStars(ctx, msg.rating, 90 + ctx.measureText(`${msg.mood} `).width + 20, curY);
       curY += 60;
 
-      // Body text (with larger font)
+      // 正文 —— 精确计算行数 + 笔记本横线背景
+      const bodyFontSize = 32;
+      const bodyLineH = 56;
+      const bodyMaxW = CARD_W - 180;
+      const bodyMaxLines = 12;
+      ctx.font = '900 ' + bodyFontSize + 'px "ZCOOL KuaiLe", "Press Start 2P", sans-serif';
+      const bodyLines = measureWrapLines(ctx, msg.body, bodyMaxW, bodyLineH, bodyMaxLines);
+      // 先画文字（前景）
       ctx.fillStyle = '#f4e7d3';
-      ctx.font = '900 48px "ZCOOL KuaiLe", "Press Start 2P", sans-serif';
-      wrapText(ctx, msg.body, 90, curY, CARD_W - 180, 62, 6);
-      const bodyLines = Math.min(6, Math.ceil(msg.body.length / 18));
-      curY += 50 + bodyLines * 62;
+      const textBaseY = curY + 6; // 文字基线微调
+      wrapText(ctx, msg.body, 92, textBaseY, bodyMaxW, bodyLineH, bodyMaxLines);
+      // 后画横线（在文字下方，作为背景分隔线）
+      ctx.globalAlpha = 0.14;
+      ctx.strokeStyle = '#ffd23f';
+      ctx.lineWidth = 1;
+      for (let ln = 0; ln < bodyLines; ln++) {
+        const ly = textBaseY + ln * bodyLineH + bodyFontSize * 0.82; // 横线画在文字底部下方
+        if (ly > CARD_H - 340) break;
+        ctx.beginPath();
+        ctx.moveTo(90, ly);
+        ctx.lineTo(CARD_W - 90, ly);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      curY += bodyLines * bodyLineH + 20;
 
       // Image thumbnail indicator
       if ((msg.images?.length ?? 0) > 0 || msg.image) {
@@ -265,7 +298,7 @@ export function ShareModal() {
     ctx.fillStyle = '#b1a0cc';
     ctx.font = '20px "Press Start 2P", "ZCOOL KuaiLe", sans-serif';
     ctx.fillText('扫码查看', 300, qrY + 60);
-    ctx.fillText('chilichill.vercel.app', 300, qrY + 100);
+    ctx.fillText('www.707o.cc', 300, qrY + 100);
 
     // === Footer ===
     ctx.fillStyle = 'rgba(177,160,204,0.4)';

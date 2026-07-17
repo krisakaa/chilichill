@@ -109,7 +109,7 @@ export function MessageWall() {
         <div className="wordmark">{wallMode === 'all' ? '全站' : curStation ? curStation.code : '选择城市'}</div>
         <div className="wall-actions">
           <button className="ico-btn city-menu-btn" onClick={() => setCityDrawerOpen(true)} disabled={cityGroups.length === 0}>城市</button>
-          <button className="ico-btn" onClick={() => setShareOpen(true)}>分享</button>
+          <button className="ico-btn" onClick={() => openShareCard('page')}>分享</button>
           <button className="ico-btn all-menu-btn" onClick={() => { setCityDrawerOpen(false); openAllWall(); }}>全站</button>
           <button className="ico-btn" onClick={toggleSort}>{sortNew ? '最新' : '最早'}</button>
         </div>
@@ -174,6 +174,7 @@ export function MessageWall() {
                     onLightbox={setLightbox}
                     onReply={startReply}
                     onReaction={toggleReaction}
+                    onShare={(msg) => openShareCard('message', msg)}
                   />
                 ))}
                 {messagesHasMore && (
